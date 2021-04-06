@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Audio;
 using System;
@@ -318,6 +318,7 @@ public class SoundAnalyzer : MonoBehaviour
                         }
                         else
                         {
+                            if (Time.frameCount % 2 == 0)
                             texture2d.SetPixel(i, 0, Color.blue);
                         }
                     }
