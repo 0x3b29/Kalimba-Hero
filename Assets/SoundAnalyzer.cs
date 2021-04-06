@@ -46,6 +46,12 @@ public class SoundAnalyzer : MonoBehaviour
     public GameObject thresholdSliderPrefab;
     public GameObject thresholdSliderParent;
 
+    public Slider retriggerTimeoutSlider;
+    public Slider retriggerLevelSlider;
+
+    public Text retriggerTimeoutText;
+    public Text retriggerLevelText;
+
     void Start()
     {
         spectrum = new float[binSize];
@@ -108,6 +114,32 @@ public class SoundAnalyzer : MonoBehaviour
         { UnselectButtonClick(unselectButton); });
 
         DropdownValueChanged(noteSelectorDropdown);
+
+        retriggerTimeoutSlider.onValueChanged.AddListener(delegate
+        { RetriggerTimeoutValueChanged(retriggerTimeoutSlider); });
+
+        retriggerLevelSlider.onValueChanged.AddListener(delegate
+        { RetriggerLevelSliderChanged(retriggerLevelSlider); });
+    }
+
+    void RetriggerTimeoutValueChanged(Slider retriggerTimeoutSlider)
+    {
+        foreach(Note note in notes)
+        {
+            note.minTimeoutFrames = Mathf.RoundToInt(retriggerTimeoutSlider.value);
+        }
+
+        retriggerTimeoutText.text = "Timeout (" + Mathf.RoundToInt(retriggerTimeoutSlider.value) + ")";
+    }
+
+    void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
+    {
+        foreach (Note note in notes)
+        {
+            note.minLevelForRetrigger = retriggerLevelSlider.value;
+        }
+
+        retriggerLevelText.text = "Level (" + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f) + ")";
     }
 
     void SaveButtonClick(Button saveButton)
@@ -153,7 +185,6 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         noteSelectorDropdown.value = notes.FindIndex(x => x == selectedNote);
-        // DropdownValueChanged(noteSelectorDropdown);
         Debug.Log("Selected is " + selectedNote.caption);
     }
 
@@ -194,6 +225,9 @@ public class SoundAnalyzer : MonoBehaviour
 
         updateDropdownOptions();
         DropdownValueChanged(noteSelectorDropdown);
+
+        RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
+        RetriggerLevelSliderChanged(retriggerLevelSlider);
     }
 
     void RemoveButtonClick(Button removeButton)
@@ -314,6 +348,9 @@ public class SoundAnalyzer : MonoBehaviour
         {
             note.CreateThresholdSlider(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform));
         }
+
+        RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
+        RetriggerLevelSliderChanged(retriggerLevelSlider);
     }
 
     public static float MapRange(float value, float inputRangeFrom, float inputRangeTo, float outputRangeFrom, float outputRangeTo)

@@ -19,9 +19,13 @@ public class Note
     public float thresholdValue;
 
     public bool triggered { get; set; }
+    public int minTimeoutFrames { get; set; }
+    public float minLevelForRetrigger { get; set; }
 
     private float maxValue { get; set; }
     private float oldValue { get; set; }
+
+    public int lastTriggeredFrame { get; set; }
 
     [field: NonSerialized] private GameObject thresholdSliderParent { get; set; }
     [field: NonSerialized] private Slider thresholdSlider { get; set; }
@@ -106,19 +110,29 @@ public class Note
 
         thresholdBackgroundPanelImage.fillAmount = 1 / maxValue * value;
 
-        if (triggered)
+        if (Time.frameCount > lastTriggeredFrame + minTimeoutFrames)
         {
-            if (value <= thresholdValue)
+            if (triggered)
             {
-                triggered = false;
+                if (value > thresholdValue && value > oldValue * minLevelForRetrigger)
+                {
+                    Debug.Log(caption + " got re-triggered.");
+                    lastTriggeredFrame = Time.frameCount;
+                }
+
+                if (value <= thresholdValue)
+                {
+                    triggered = false;
+                }
             }
-        }
-        else
-        {
-            if (value > oldValue && value > thresholdValue)
+            else
             {
-                Debug.Log(caption + " got triggered."); // by " + value + " which was more than " + thresholdValue);
-                triggered = true;
+                if (value > oldValue && value > thresholdValue)
+                {
+                    Debug.Log(caption + " got triggered."); // by " + value + " which was more than " + thresholdValue);
+                    triggered = true;
+                    lastTriggeredFrame = Time.frameCount;
+                }
             }
         }
 
