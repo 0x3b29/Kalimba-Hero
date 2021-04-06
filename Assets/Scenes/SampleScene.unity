@@ -2655,6 +2655,7 @@ MonoBehaviour:
   saveButton: {fileID: 1851198943}
   loadButton: {fileID: 1384132607}
   addButton: {fileID: 233757177}
+  clearButton: {fileID: 6318388}
   removeButton: {fileID: 1618040119}
   unselectButton: {fileID: 868798726}
   nextButton: {fileID: 338269746}
@@ -3147,7 +3148,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Load
+  m_Text: Clear
 --- !u!222 &1284409999
 CanvasRenderer:
   m_ObjectHideFlags: 0
