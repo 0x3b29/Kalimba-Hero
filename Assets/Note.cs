@@ -30,6 +30,7 @@ public class Note
     [field: NonSerialized] private GameObject thresholdSliderParent { get; set; }
     [field: NonSerialized] private Slider thresholdSlider { get; set; }
     [field: NonSerialized] private Image thresholdBackgroundPanelImage { get; set; }
+    [field: NonSerialized] private SoundAnalyzer soundAnalyzer { get; set; }
 
     public Note(string caption, int lowerBound, int upperBound, float thresholdValue)
     {
@@ -40,7 +41,7 @@ public class Note
         this.maxValue = thresholdValue * 1.5f;
     }
 
-    public void CreateThresholdSlider(GameObject thresholdSliderParent)
+    public void InitializeNote(GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer)
     {
         this.thresholdSliderParent = thresholdSliderParent;
 
@@ -58,6 +59,8 @@ public class Note
         thresholdSlider.onValueChanged.AddListener(delegate {
             TresholdSliderValueChanged(thresholdSlider);
         });
+
+        this.soundAnalyzer = soundAnalyzer;
     }
 
     public void TresholdSliderValueChanged(Slider thresholdSlider)
@@ -118,6 +121,7 @@ public class Note
                 {
                     Debug.Log(caption + " got re-triggered.");
                     lastTriggeredFrame = Time.frameCount;
+                    soundAnalyzer.triggerNote(caption);
                 }
 
                 if (value <= thresholdValue)
@@ -132,6 +136,7 @@ public class Note
                     Debug.Log(caption + " got triggered."); // by " + value + " which was more than " + thresholdValue);
                     triggered = true;
                     lastTriggeredFrame = Time.frameCount;
+                    soundAnalyzer.triggerNote(caption);
                 }
             }
         }

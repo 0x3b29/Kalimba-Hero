@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Audio;
 using System;
@@ -51,6 +51,8 @@ public class SoundAnalyzer : MonoBehaviour
 
     public Text retriggerTimeoutText;
     public Text retriggerLevelText;
+
+    public InputField outputInputField;
 
     void Start()
     {
@@ -150,8 +152,8 @@ public class SoundAnalyzer : MonoBehaviour
     void LoadButtonClick(Button loadButton)
     {
         LoadData();
+        selectedNote = null;
         updateDropdownOptions();
-        noteSelectorDropdown.value = notes.FindIndex(x => x == selectedNote);
     }
 
     void ClearButtonClick(Button clearButton)
@@ -220,7 +222,7 @@ public class SoundAnalyzer : MonoBehaviour
     void AddButtonClick(Button addButton)
     {
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
-        newNote.CreateThresholdSlider(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform));
+        newNote.InitializeNote(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform), this);
         notes.Add(newNote);
 
         updateDropdownOptions();
@@ -254,7 +256,6 @@ public class SoundAnalyzer : MonoBehaviour
             return;
         }
 
-        Debug.Log("New Value : " + change.value);
         selectedNote = notes[change.value];
 
         lowerBoundSlider.value = selectedNote.GetLowerBound();
@@ -319,7 +320,7 @@ public class SoundAnalyzer : MonoBehaviour
                         else
                         {
                             if (Time.frameCount % 2 == 0)
-                            texture2d.SetPixel(i, 0, Color.blue);
+                                texture2d.SetPixel(i, 0, Color.blue);
                         }
                     }
                 }
@@ -347,7 +348,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         foreach (Note note in notes)
         {
-            note.CreateThresholdSlider(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform));
+            note.InitializeNote(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform), this);
         }
 
         RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
@@ -357,5 +358,21 @@ public class SoundAnalyzer : MonoBehaviour
     public static float MapRange(float value, float inputRangeFrom, float inputRangeTo, float outputRangeFrom, float outputRangeTo)
     {
         return (value - inputRangeFrom) * (outputRangeTo - outputRangeFrom) / (inputRangeTo - inputRangeFrom) + outputRangeFrom;
+    }
+
+    int msSinceLastNote;
+
+    public void triggerNote(string note)
+    {
+        if (outputInputField.text == "")
+        {
+            msSinceLastNote = Mathf.RoundToInt(Time.time * 1000);
+            outputInputField.text = note + ", ";
+        }
+        else
+        {
+            outputInputField.text += Mathf.RoundToInt(Time.time * 1000) - msSinceLastNote + "; " + note + ", ";
+            msSinceLastNote = Mathf.RoundToInt(Time.time * 1000);
+        }
     }
 }
