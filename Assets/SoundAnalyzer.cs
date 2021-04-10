@@ -19,8 +19,8 @@ public class SoundAnalyzer : MonoBehaviour
     public bool mute;
     public AudioMixer masterMixer; // drag an Audio Mixer here in the inspector
 
-    int textWidth = 512;
-    int textHeight = 200;
+    int textureWidth = 512;
+    int textureHeight = 200;
     Texture2D texture2d;
 
     Note selectedNote;
@@ -43,8 +43,8 @@ public class SoundAnalyzer : MonoBehaviour
 
     public InputField noteNameInput;
 
+    public GameObject thresholdSliderPanel;
     public GameObject thresholdSliderPrefab;
-    public GameObject thresholdSliderParent;
 
     public Slider retriggerTimeoutSlider;
     public Slider retriggerLevelSlider;
@@ -53,6 +53,13 @@ public class SoundAnalyzer : MonoBehaviour
     public Text retriggerLevelText;
 
     public InputField outputInputField;
+
+    private Vector2 resolution;
+
+    private void Awake()
+    {
+        resolution = new Vector2(Screen.width, Screen.height);
+    }
 
     void Start()
     {
@@ -68,11 +75,11 @@ public class SoundAnalyzer : MonoBehaviour
         // Mutes the mixer. You have to expose the Volume element of your mixer for this to work. I named mine "masterVolume".
         masterMixer.SetFloat("masterVolume", -80f);
 
-        texture2d = new Texture2D(textWidth, textHeight);
+        texture2d = new Texture2D(textureWidth, textureHeight);
 
-        for (int x = 0; x < textWidth; x++)
+        for (int x = 0; x < textureWidth; x++)
         {
-            for (int y = 0; y < textHeight; y++)
+            for (int y = 0; y < textureHeight; y++)
             {
                 texture2d.SetPixel(x, y, Color.black);
             }
@@ -159,7 +166,7 @@ public class SoundAnalyzer : MonoBehaviour
     void ClearButtonClick(Button clearButton)
     {
         notes.Clear();
-        foreach(Transform child in thresholdSliderParent.transform)
+        foreach(Transform child in thresholdSliderPanel.transform)
         {
             Destroy(child.gameObject);
         }
@@ -222,7 +229,7 @@ public class SoundAnalyzer : MonoBehaviour
     void AddButtonClick(Button addButton)
     {
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
-        newNote.InitializeNote(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform), this);
+        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this);
         notes.Add(newNote);
 
         updateDropdownOptions();
@@ -276,9 +283,20 @@ public class SoundAnalyzer : MonoBehaviour
 
     void Update()
     {
-        for (int x = 0; x < textWidth; x++)
+        if (resolution.x != Screen.width || resolution.y != Screen.height)
         {
-            for (int y = textHeight; y > 0; y--)
+            foreach (Note note in notes)
+            {
+                note.SetThresholdSliderParentPosition(thresholdSliderPanel.GetComponent<RectTransform>().rect.width);
+            }
+
+            resolution.x = Screen.width;
+            resolution.y = Screen.height;
+        }
+
+        for (int x = 0; x < textureWidth; x++)
+        {
+            for (int y = textureHeight; y > 0; y--)
             {
                 texture2d.SetPixel(x, y + 1, texture2d.GetPixel(x, y));
             }
@@ -300,7 +318,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         for (int i = 0; i < binSize; i++)
         {
-            if (i < textWidth)
+            if (i < textureWidth)
             {
                 texture2d.SetPixel(i, 0, new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0));
 
@@ -348,7 +366,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         foreach (Note note in notes)
         {
-            note.InitializeNote(Instantiate(thresholdSliderPrefab, thresholdSliderParent.transform), this);
+            note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this);
         }
 
         RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
