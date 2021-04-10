@@ -3,21 +3,19 @@ using UnityEngine.UI;
 using UnityEngine.Audio;
 using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Runtime.Serialization.Formatters.Binary;
 
 [RequireComponent(typeof(AudioSource))]
 public class SoundAnalyzer : MonoBehaviour
 {
-    public int qSamples = 8192; //1024;
-    public int binSize = 8192; // you can change this up, I originally used 8192 for better resolution, but I stuck with 1024 because it was slow-performing on the phone
+    public int qSamples = 8192;
+    public int binSize = 8192;
 
     float[] spectrum;
     int samplerate;
 
-    public Text display; // drag a Text object here to display values
+    public Text display;
     public bool mute;
-    public AudioMixer masterMixer; // drag an Audio Mixer here in the inspector
+    public AudioMixer masterMixer;
 
     int textureWidth = 512;
     int textureHeight = 200;
@@ -26,7 +24,10 @@ public class SoundAnalyzer : MonoBehaviour
     Note selectedNote;
     List<Note> notes = new List<Note>();
 
+    public Text selectedNoteText;
+
     public Dropdown noteSelectorDropdown;
+
     public Slider upperBoundSlider;
     public Slider lowerBoundSlider;
 
@@ -55,6 +56,8 @@ public class SoundAnalyzer : MonoBehaviour
     public InputField outputInputField;
 
     private Vector2 resolution;
+
+    private bool ignoreSliderEvent = false;
 
     private void Awake()
     {
@@ -89,7 +92,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         GameObject.Find("Image").GetComponent<RawImage>().texture = texture2d;
 
-        updateDropdownOptions();
+        UpdateDropdownOptions();
         DropdownValueChanged(noteSelectorDropdown);
 
         noteSelectorDropdown.onValueChanged.AddListener(delegate 
@@ -159,94 +162,113 @@ public class SoundAnalyzer : MonoBehaviour
     void LoadButtonClick(Button loadButton)
     {
         LoadData();
+        UnselectNote();
+        UpdateDropdownOptions();
+    }
+
+    void UnselectNote()
+    {
         selectedNote = null;
-        updateDropdownOptions();
+        selectedNoteText.text = "/";
+        lowerBoundSlider.gameObject.SetActive(false);
+        upperBoundSlider.gameObject.SetActive(false);
+    }
+
+    void SelectNote(Note note)
+    {
+        noteSelectorDropdown.value = notes.FindIndex(x => x == note);
+        selectedNote = note;
+        selectedNoteText.text = note.caption;
+
+        ignoreSliderEvent = true;
+        lowerBoundSlider.value = note.GetLowerBound();
+        upperBoundSlider.value = note.GetUpperBound();
+        ignoreSliderEvent = false;
+
+        lowerBoundSlider.gameObject.SetActive(true);
+        upperBoundSlider.gameObject.SetActive(true);
     }
 
     void ClearButtonClick(Button clearButton)
     {
         notes.Clear();
+
         foreach(Transform child in thresholdSliderPanel.transform)
         {
             Destroy(child.gameObject);
         }
+
         noteSelectorDropdown.options.Clear();
+        UnselectNote();
     }
 
     void NextButtonClick(Button nextButton)
     {
-        if (selectedNote != null)
-            Debug.Log("Selected was " + selectedNote.caption);
-        else
-            Debug.Log("Selected was null");
+        Note nextNote;
 
         if (selectedNote == null)
         {
-            selectedNote = notes[0];
+            nextNote = notes[0];
         }
         else if (selectedNote == notes[notes.Count - 1])
         {
-            selectedNote = notes[0];
+            nextNote = notes[0];
         }
         else
         {
-            selectedNote = notes[notes.FindIndex(x => x == selectedNote) + 1];
+            nextNote = notes[notes.FindIndex(x => x == selectedNote) + 1];
         }
 
-        noteSelectorDropdown.value = notes.FindIndex(x => x == selectedNote);
-        Debug.Log("Selected is " + selectedNote.caption);
+        SelectNote(nextNote);
     }
 
     void PreviousButtonClick(Button previousButton)
     {
-        if (selectedNote != null)
-            Debug.Log("Selected was " + selectedNote.caption);
-        else
-            Debug.Log("Selected was null");
+        Note previousNote;
 
         if (selectedNote == null)
         {
-            selectedNote = notes[notes.Count - 1];
+            previousNote = notes[notes.Count - 1];
         }
         else if (selectedNote == notes[0])
         {
-            selectedNote = notes[notes.Count - 1];
+            previousNote = notes[notes.Count - 1];
         }
         else
         {
-            selectedNote = notes[notes.FindIndex(x => x == selectedNote) - 1];
+            previousNote = notes[notes.FindIndex(x => x == selectedNote) - 1];
         }
 
-        noteSelectorDropdown.value = notes.FindIndex(x => x == selectedNote);
-        Debug.Log("Selected is " + selectedNote.caption);
+        SelectNote(previousNote);
     }
 
     void UnselectButtonClick(Button unselectButton)
     {
         selectedNote = null;
+        selectedNoteText.text = "/";
     }
 
     void AddButtonClick(Button addButton)
     {
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
+
         newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this);
+        newNote.minTimeoutFrames = Mathf.RoundToInt(retriggerTimeoutSlider.value);
+        newNote.minLevelForRetrigger = retriggerLevelSlider.value;
+
         notes.Add(newNote);
-
-        updateDropdownOptions();
-        DropdownValueChanged(noteSelectorDropdown);
-
-        RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
-        RetriggerLevelSliderChanged(retriggerLevelSlider);
+        UpdateDropdownOptions();
+        SelectNote(newNote);
     }
 
     void RemoveButtonClick(Button removeButton)
     {
         notes.Remove(selectedNote);
-        updateDropdownOptions();
-        DropdownValueChanged(noteSelectorDropdown);
+        UpdateDropdownOptions();
+        UnselectNote();
     }
 
-    void updateDropdownOptions()
+    void UpdateDropdownOptions()
     {
         noteSelectorDropdown.options.Clear();
 
@@ -263,28 +285,29 @@ public class SoundAnalyzer : MonoBehaviour
             return;
         }
 
-        selectedNote = notes[change.value];
-
-        lowerBoundSlider.value = selectedNote.GetLowerBound();
-        upperBoundSlider.value = selectedNote.GetUpperBound();
+        SelectNote(notes[change.value]);
     }
 
     void UpperBoundSliderValueChanged(Slider upperBoundSlider)
     {
-        if (selectedNote != null)
-            selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
+        if (selectedNote == null || ignoreSliderEvent == true)
+            return;
 
         if (upperBoundSlider.value < lowerBoundSlider.value)
             lowerBoundSlider.value = upperBoundSlider.value;
+
+        selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
     }
 
     void LowerBoundSliderValueChanged(Slider lowerBoundSlider)
     {
-        if (selectedNote != null)
-            selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
+        if (selectedNote == null || ignoreSliderEvent == true)
+            return;
 
         if (lowerBoundSlider.value > upperBoundSlider.value)
             upperBoundSlider.value = lowerBoundSlider.value;
+
+        selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
     }
 
     void Update()
