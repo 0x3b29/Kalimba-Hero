@@ -272,13 +272,19 @@ public class SoundAnalyzer : MonoBehaviour
     void UpperBoundSliderValueChanged(Slider upperBoundSlider)
     {
         if (selectedNote != null)
-            selectedNote.SetUpperBound(Mathf.RoundToInt(upperBoundSlider.value));
+            selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
+
+        if (upperBoundSlider.value < lowerBoundSlider.value)
+            lowerBoundSlider.value = upperBoundSlider.value;
     }
 
     void LowerBoundSliderValueChanged(Slider lowerBoundSlider)
     {
         if (selectedNote != null)
-            selectedNote.SetLowerBound(Mathf.RoundToInt(lowerBoundSlider.value));
+            selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
+
+        if (lowerBoundSlider.value > upperBoundSlider.value)
+            upperBoundSlider.value = lowerBoundSlider.value;
     }
 
     void Update()

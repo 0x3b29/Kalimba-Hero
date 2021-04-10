@@ -81,7 +81,7 @@ public class Note
         thresholdSliderParent.GetComponent<RectTransform>().anchoredPosition = localPosition;
     }
 
-    public void SetLowerBound(int newLowerBound)
+    public void SetNewBounds(int newLowerBound, int newUpperBound)
     {
         if (newLowerBound > upperBound)
         {
@@ -92,11 +92,6 @@ public class Note
             lowerBound = newLowerBound;
         }
 
-        SetThresholdSliderParentPosition(thresholdSliderPanel.GetComponent<RectTransform>().rect.width);
-    }
-
-    public void SetUpperBound(int newUpperBound)
-    {
         if (newUpperBound < lowerBound)
         {
             upperBound = lowerBound;
