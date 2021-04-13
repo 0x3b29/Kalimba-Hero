@@ -39,6 +39,7 @@ public class SoundAnalyzer : MonoBehaviour
     public Button loadButton;
     public Button addButton;
     public Button clearButton;
+    public Button renameButton;
 
     public Button removeButton;
 
@@ -119,6 +120,9 @@ public class SoundAnalyzer : MonoBehaviour
 
         addButton.onClick.AddListener(delegate
         { AddButtonClick(addButton); });
+
+        renameButton.onClick.AddListener(delegate
+        { RenameButtonClick(renameButton); });
 
         nextButton.onClick.AddListener(delegate
         { NextButtonClick(nextButton); });
@@ -314,6 +318,16 @@ public class SoundAnalyzer : MonoBehaviour
         datasource.notes.Add(newNote);
         UpdateDropdownOptions();
         SelectNote(newNote);
+    }
+
+    void RenameButtonClick(Button renameButton)
+    {
+        if (selectedNote != null)
+        {
+            selectedNote.caption = noteNameInput.text;
+            UpdateDropdownOptions();
+            selectedNoteText.text = selectedNote.caption;
+        }
     }
 
     void RemoveButtonClick(Button removeButton)
