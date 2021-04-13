@@ -43,6 +43,8 @@ public class Note
         this.thresholdSliderPanel = thresholdSliderPanel;
         this.thresholdSliderParent = thresholdSliderParent;
         this.soundAnalyzer = soundAnalyzer;
+        this.minRetriggerTimeoutFrames = minRetriggerTimeoutFrames;
+        this.minRetriggerMinimumLevel = minRetriggerMinimumLevel;
 
         // The thresholdSliderParent has just been created, therefore set a usefull name
         thresholdSliderParent.name = caption + " " + " Threshold Slider";
