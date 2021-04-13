@@ -5,12 +5,6 @@ using UnityEngine;
 using UnityEngine.UI;
 
 [Serializable]
-public class RootObject
-{
-    public List<Note> notes;
-}
-
-[Serializable]
 public class Note
 {
     // All the values that are public and have no getters / setters will be serialized
@@ -21,8 +15,8 @@ public class Note
 
     // All the values that are NonSerialized will be resetted after loading
     [field: NonSerialized] public bool triggered { get; set; }
-    [field: NonSerialized] public int minTimeoutFrames { get; set; }
-    [field: NonSerialized] public float minLevelForRetrigger { get; set; }
+    [field: NonSerialized] public int minRetriggerTimeoutFrames { get; set; }
+    [field: NonSerialized] public float minRetriggerMinimumLevel { get; set; }
 
     [field: NonSerialized] private float maxValue { get; set; }
     [field: NonSerialized] private float oldValue { get; set; }
@@ -43,7 +37,7 @@ public class Note
         this.thresholdValue = thresholdValue;
     }
 
-    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer)
+    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, int minRetriggerTimeoutFrames, float minRetriggerMinimumLevel)
     {
         // This function is executed after loading or creating of notes
         this.thresholdSliderPanel = thresholdSliderPanel;
@@ -132,12 +126,12 @@ public class Note
         thresholdBackgroundPanelImage.fillAmount = 1 / maxValue * value;
 
         // Check if enough time has elapsed since this note has been triggered last time
-        if (Time.frameCount > lastTriggeredFrame + minTimeoutFrames)
+        if (Time.frameCount > lastTriggeredFrame + minRetriggerTimeoutFrames)
         {
             if (triggered)
             {
                 // If the note is already in a triggered state, we need to check if the current level is higher than the previous level
-                if (value > thresholdValue && value > oldValue * minLevelForRetrigger)
+                if (value > thresholdValue && value > oldValue * minRetriggerMinimumLevel)
                 {
                     // If so, we have a retrigger
                     lastTriggeredFrame = Time.frameCount;

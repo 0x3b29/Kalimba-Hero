@@ -3,6 +3,8 @@ using UnityEngine.UI;
 using UnityEngine.Audio;
 using System;
 using System.Collections.Generic;
+using SFB;
+using System.IO;
 
 [RequireComponent(typeof(AudioSource))]
 public class SoundAnalyzer : MonoBehaviour
@@ -17,7 +19,7 @@ public class SoundAnalyzer : MonoBehaviour
     private Texture2D spectrumTexture2D;
 
     private Note selectedNote;
-    private List<Note> notes = new List<Note>();
+    private Datasource datasource;
 
     private Vector2 screenResolution;
     private bool ignoreSliderEvent = false;
@@ -65,6 +67,8 @@ public class SoundAnalyzer : MonoBehaviour
 
     void Start()
     {
+        datasource = new Datasource(5, 1.2f);
+
         // Basic setup to get the audio from the mic as spectrum
         spectrum = new float[spectrumSize];
         int samplerate = AudioSettings.outputSampleRate;
@@ -134,11 +138,16 @@ public class SoundAnalyzer : MonoBehaviour
 
     void RetriggerTimeoutValueChanged(Slider retriggerTimeoutSlider)
     {
+        int newSliderValue = Mathf.RoundToInt(retriggerTimeoutSlider.value);
+
         // All the notes are updated with the new retrigger timeout value
-        foreach (Note note in notes)
+        foreach (Note note in datasource.notes)
         {
-            note.minTimeoutFrames = Mathf.RoundToInt(retriggerTimeoutSlider.value);
+            note.minRetriggerTimeoutFrames = newSliderValue;
         }
+
+        // Also remember value in datasource for saveing and loading
+        datasource.retriggerTimeoutFrames = newSliderValue;
 
         // Update the Text label for feedback
         retriggerTimeoutText.text = "Timeout (" + Mathf.RoundToInt(retriggerTimeoutSlider.value) + ")";
@@ -147,10 +156,13 @@ public class SoundAnalyzer : MonoBehaviour
     void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
     {
         // All the notes are updated with the new retrigger level value
-        foreach (Note note in notes)
+        foreach (Note note in datasource.notes)
         {
-            note.minLevelForRetrigger = retriggerLevelSlider.value;
+            note.minRetriggerMinimumLevel = retriggerLevelSlider.value;
         }
+
+        // Also remember value in datasource for saveing and loading
+        datasource.retriggerMinimumLevel = retriggerLevelSlider.value;
 
         // Update the Text label for feedback
         retriggerLevelText.text = "Level (" + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f) + ")";
@@ -158,13 +170,37 @@ public class SoundAnalyzer : MonoBehaviour
 
     void SaveButtonClick(Button saveButton)
     {
-        SaveData();
+        // Currently, the output is logged where it can be recovered to be put in the kalimbaSetup string
+        Debug.Log(JsonUtility.ToJson(datasource));
+
+        String saveFilePath = StandaloneFileBrowser.SaveFilePanel("Save File", Application.persistentDataPath, "Kalimba-Hero", "kal");
+
+        StreamWriter writer = new StreamWriter(saveFilePath, false);
+        writer.WriteLine(JsonUtility.ToJson(datasource));
+        writer.Close();
     }
 
     void LoadButtonClick(Button loadButton)
     {
-        LoadData();
-        UpdateDropdownOptions();
+        String[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", new[] { new ExtensionFilter("Kalimba Hero", "kal") }, true);
+
+        if (paths.Length > 0 && File.Exists(paths[0]))
+        {
+            StreamReader reader = new StreamReader(paths[0]);
+            String kalimbaSetup = reader.ReadToEnd();
+            reader.Close();
+
+            // And a root object is recovered from it which then contains the list of notes
+            datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
+
+            // Only the custom values are recovered. Therefore, we need to reinitialize the notes
+            foreach (Note note in datasource.notes)
+            {
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerTimeoutFrames, datasource.retriggerMinimumLevel);
+            }
+
+            UpdateDropdownOptions();
+        }
     }
 
     void UnselectNote()
@@ -183,7 +219,7 @@ public class SoundAnalyzer : MonoBehaviour
         selectedNoteText.text = note.caption;
         
         // Try to find the correct entry in the dropdown
-        noteSelectorDropdown.value = notes.FindIndex(x => x == note);
+        noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == note);
 
         // While initially setting the bounds, we need to prevent the slider update event to be triggered 
         // E.g. after setting the lowerBoundSlider.value, the event already fires and uses an old upperBoundSlider.value
@@ -200,7 +236,7 @@ public class SoundAnalyzer : MonoBehaviour
     void ClearButtonClick(Button clearButton)
     {
         // Remove all notes from list
-        notes.Clear();
+        datasource.notes.Clear();
 
         // Destroy all sliders
         foreach(Transform child in thresholdSliderPanel.transform)
@@ -220,17 +256,17 @@ public class SoundAnalyzer : MonoBehaviour
         if (selectedNote == null)
         {
             // If no note from notes list was selected, first note will be selected
-            nextNote = notes[0];
+            nextNote = datasource.notes[0];
         }
-        else if (selectedNote == notes[notes.Count - 1])
+        else if (selectedNote == datasource.notes[datasource.notes.Count - 1])
         {
             // If last note from notes list was selected, first note will be selected
-            nextNote = notes[0];
+            nextNote = datasource.notes[0];
         }
         else
         {
             // Get current note index and select next
-            nextNote = notes[notes.FindIndex(x => x == selectedNote) + 1];
+            nextNote = datasource.notes[datasource.notes.FindIndex(x => x == selectedNote) + 1];
         }
 
         // Update UI
@@ -244,17 +280,17 @@ public class SoundAnalyzer : MonoBehaviour
         if (selectedNote == null)
         {
             // If no note from notes list was selected, last note will be selected
-            previousNote = notes[notes.Count - 1];
+            previousNote = datasource.notes[datasource.notes.Count - 1];
         }
-        else if (selectedNote == notes[0])
+        else if (selectedNote == datasource.notes[0])
         {
             // If first note from notes list was selected, last note will be selected
-            previousNote = notes[notes.Count - 1];
+            previousNote = datasource.notes[datasource.notes.Count - 1];
         }
         else
         {
             // Get current note index and select previous
-            previousNote = notes[notes.FindIndex(x => x == selectedNote) - 1];
+            previousNote = datasource.notes[datasource.notes.FindIndex(x => x == selectedNote) - 1];
         }
 
         // Update UI
@@ -272,12 +308,10 @@ public class SoundAnalyzer : MonoBehaviour
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this);
-        newNote.minTimeoutFrames = Mathf.RoundToInt(retriggerTimeoutSlider.value);
-        newNote.minLevelForRetrigger = retriggerLevelSlider.value;
+        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, Mathf.RoundToInt(retriggerTimeoutSlider.value), retriggerLevelSlider.value);
 
         // Add note to notes list, select new note and update UI
-        notes.Add(newNote);
+        datasource.notes.Add(newNote);
         UpdateDropdownOptions();
         SelectNote(newNote);
     }
@@ -285,7 +319,7 @@ public class SoundAnalyzer : MonoBehaviour
     void RemoveButtonClick(Button removeButton)
     {
         // Remove note to notes list, unselect note and update UI
-        notes.Remove(selectedNote);
+        datasource.notes.Remove(selectedNote);
         UpdateDropdownOptions();
         UnselectNote();
     }
@@ -296,14 +330,14 @@ public class SoundAnalyzer : MonoBehaviour
         noteSelectorDropdown.options.Clear();
 
         // Create a new Dropdown entry for each note
-        foreach (Note note in notes)
+        foreach (Note note in datasource.notes)
         {
             noteSelectorDropdown.options.Add(new Dropdown.OptionData(note.caption));
         }
 
         // Select the currently selected note (if any)
         if (selectedNote != null)
-            noteSelectorDropdown.value = notes.FindIndex(x => x == selectedNote);
+            noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == selectedNote);
     }
 
     void DropdownValueChanged(Dropdown change)
@@ -315,7 +349,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         // Otherwise, select note from notes list
-        SelectNote(notes[change.value]);
+        SelectNote(datasource.notes[change.value]);
     }
 
     void UpperBoundSliderValueChanged(Slider upperBoundSlider)
@@ -350,7 +384,7 @@ public class SoundAnalyzer : MonoBehaviour
         if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
         {
             // If so, we need to reposition all the threshold slider
-            foreach (Note note in notes)
+            foreach (Note note in datasource.notes)
             {
                 note.SetThresholdSliderParentPosition();
             }
@@ -373,7 +407,7 @@ public class SoundAnalyzer : MonoBehaviour
         GetComponent<AudioSource>().GetSpectrumData(spectrum, 0, FFTWindow.BlackmanHarris);
 
         // For each note, we calculate the level of sound
-        foreach(Note note in notes)
+        foreach(Note note in datasource.notes)
         {
             float accumulator = 0;
 
@@ -399,7 +433,7 @@ public class SoundAnalyzer : MonoBehaviour
 
                 // Then we iterate over every note
                 // TODO: this should be done outside the spectrum loop because 0(n²)
-                foreach (Note note in notes)
+                foreach (Note note in datasource.notes)
                 {
                     // If the current pixel is a bound, we colorize the pixel differently
                     if (i == note.GetLowerBound() || i == note.GetUpperBound())
@@ -430,39 +464,6 @@ public class SoundAnalyzer : MonoBehaviour
         // Finally we apply and update the texture
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
-    }
-
-    public void SaveData()
-    {
-        // To convert the list of objects to a JSON string, we need to encapsulate her first in another class since the root element cant be a list
-        // TODO: Add saving to file
-        RootObject rootObject = new RootObject();
-        rootObject.notes = notes;
-
-        // Currently, the output is logged where it can be recovered to be put in the kalimbaSetup string
-        Debug.Log(JsonUtility.ToJson(rootObject));
-    }
-
-    public void LoadData()
-    {
-        // Currently the data is loaded from this string
-        // TODO: Add loading from file
-        String kalimbaSetup = "{\"notes\":[{\"caption\":\"C\",\"lowerBound\":85,\"upperBound\":93,\"thresholdValue\":0.025245806202292444},{\"caption\":\"D\",\"lowerBound\":95,\"upperBound\":105,\"thresholdValue\":0.024791114032268525},{\"caption\":\"E\",\"lowerBound\":107,\"upperBound\":117,\"thresholdValue\":0.03157658874988556},{\"caption\":\"F\",\"lowerBound\":118,\"upperBound\":124,\"thresholdValue\":0.026818973943591119},{\"caption\":\"G\",\"lowerBound\":128,\"upperBound\":139,\"thresholdValue\":0.03247590363025665},{\"caption\":\"A\",\"lowerBound\":146,\"upperBound\":156,\"thresholdValue\":0.05438023433089256},{\"caption\":\"B\",\"lowerBound\":164,\"upperBound\":174,\"thresholdValue\":0.0694345161318779},{\"caption\":\"C*\",\"lowerBound\":176,\"upperBound\":185,\"thresholdValue\":0.06816878169775009},{\"caption\":\"D*\",\"lowerBound\":196,\"upperBound\":206,\"thresholdValue\":0.07993388175964356},{\"caption\":\"E*\",\"lowerBound\":222,\"upperBound\":231,\"thresholdValue\":0.155356302857399},{\"caption\":\"F*\",\"lowerBound\":233,\"upperBound\":243,\"thresholdValue\":0.05957638472318649},{\"caption\":\"G*\",\"lowerBound\":264,\"upperBound\":275,\"thresholdValue\":0.10083159804344177},{\"caption\":\"A*\",\"lowerBound\":295,\"upperBound\":309,\"thresholdValue\":0.013621526770293713},{\"caption\":\"B*\",\"lowerBound\":331,\"upperBound\":342,\"thresholdValue\":0.009923440404236317},{\"caption\":\"C**\",\"lowerBound\":353,\"upperBound\":365,\"thresholdValue\":0.015800992026925088},{\"caption\":\"D**\",\"lowerBound\":392,\"upperBound\":404,\"thresholdValue\":0.02569706365466118},{\"caption\":\"E**\",\"lowerBound\":451,\"upperBound\":469,\"thresholdValue\":0.039687380194664}]}";
-
-        // And a root object is recovered from it which then contains the list of notes
-        RootObject rootObject = JsonUtility.FromJson<RootObject>(kalimbaSetup);
-        notes = rootObject.notes;
-
-        // Only the custom values are recovered. Therefore, we need to reinitialize the notes
-        foreach (Note note in notes)
-        {
-            note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this);
-        }
-
-        // And we need to reset the timeout and level values to the notes
-        // TODO: these values should be stored with the notes
-        RetriggerTimeoutValueChanged(retriggerTimeoutSlider);
-        RetriggerLevelSliderChanged(retriggerLevelSlider);
     }
 
     public static float MapRange(float value, float inputRangeFrom, float inputRangeTo, float outputRangeFrom, float outputRangeTo)
