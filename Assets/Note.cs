@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -15,11 +16,13 @@ public class Note
 
     // All the values that are NonSerialized will be resetted after loading
     [field: NonSerialized] public bool triggered { get; set; }
+    [field: NonSerialized] public int numberOfValuesToAverage { get; set; }
     [field: NonSerialized] public int minRetriggerTimeoutFrames { get; set; }
-    [field: NonSerialized] public float minRetriggerMinimumLevel { get; set; }
+    [field: NonSerialized] public float minRetriggerLevel { get; set; }
 
     [field: NonSerialized] private float maxValue { get; set; }
     [field: NonSerialized] private float oldValue { get; set; }
+    [field: NonSerialized] private Queue<float> values { get; set; }
 
     [field: NonSerialized] public int lastTriggeredFrame { get; set; }
 
@@ -37,14 +40,15 @@ public class Note
         this.thresholdValue = thresholdValue;
     }
 
-    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, int minRetriggerTimeoutFrames, float minRetriggerMinimumLevel)
+    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, int minFramesBeforRegister, int minRetriggerTimeoutFrames, float minRetriggerLevel)
     {
         // This function is executed after loading or creating of notes
         this.thresholdSliderPanel = thresholdSliderPanel;
         this.thresholdSliderParent = thresholdSliderParent;
         this.soundAnalyzer = soundAnalyzer;
+        this.numberOfValuesToAverage = minFramesBeforRegister;
         this.minRetriggerTimeoutFrames = minRetriggerTimeoutFrames;
-        this.minRetriggerMinimumLevel = minRetriggerMinimumLevel;
+        this.minRetriggerLevel = minRetriggerLevel;
 
         // The thresholdSliderParent has just been created, therefore set a usefull name
         thresholdSliderParent.name = caption + " " + " Threshold Slider";
@@ -65,6 +69,8 @@ public class Note
         thresholdSlider.onValueChanged.AddListener(delegate {
             TresholdSliderValueChanged(thresholdSlider);
         });
+
+        values = new Queue<float>();
     }
 
     public void TresholdSliderValueChanged(Slider thresholdSlider)
@@ -115,8 +121,20 @@ public class Note
         SetThresholdSliderParentPosition();
     }
 
+    int thresholdValuePassedFrames = 0;
+
     public void SetValue(float value)
     {
+        // Put the new value in the values queue
+        values.Enqueue(value);
+
+        // Make sure there are at max as many values in the queue as we need
+        while (values.Count > numberOfValuesToAverage)
+            values.Dequeue();
+
+        // Calculate the rolling average
+        float averageValue = values.Sum() / values.Count;
+
         // This funtion sets the sound level for the note and decides wheather it got triggered or not
         if (value > maxValue)
         {
@@ -132,26 +150,23 @@ public class Note
         {
             if (triggered)
             {
-                // If the note is already in a triggered state, we need to check if the current level is higher than the previous level
-                if (value > thresholdValue && value > oldValue * minRetriggerMinimumLevel)
-                {
-                    // If so, we have a retrigger
-                    lastTriggeredFrame = Time.frameCount;
-                    soundAnalyzer.UpdateUIForTriggeredNote(caption);
-                }
-
-                if (value <= thresholdValue)
+                if (averageValue < thresholdValue)
                 {
                     // If we drop below the trasholdvalue, the note will be set to not triggered
                     triggered = false;
                 }
+                else if (value > oldValue * minRetriggerLevel)
+                {
+                    // If the note is already in a triggered state, we need to check if the current level is higher than the previous level
+                    lastTriggeredFrame = Time.frameCount;
+                    soundAnalyzer.UpdateUIForTriggeredNote(caption);
+                }
             }
             else
             {
-                // If the note is not triggered, we check if the current value has passed the threshold value
-                if (value > oldValue && value > thresholdValue)
+                // If the note is not in the triggered state, we check if the current value has passed the threshold value
+                if (averageValue > thresholdValue)
                 {
-                    // If so, we have a trigger
                     triggered = true;
                     lastTriggeredFrame = Time.frameCount;
                     soundAnalyzer.UpdateUIForTriggeredNote(caption);

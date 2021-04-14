@@ -52,9 +52,11 @@ public class SoundAnalyzer : MonoBehaviour
     public GameObject thresholdSliderPanel;
     public GameObject thresholdSliderPrefab;
 
+    public Slider averageValuesSlider;
     public Slider retriggerTimeoutSlider;
     public Slider retriggerLevelSlider;
 
+    public Text averageValuesText;
     public Text retriggerTimeoutText;
     public Text retriggerLevelText;
 
@@ -68,7 +70,7 @@ public class SoundAnalyzer : MonoBehaviour
 
     void Start()
     {
-        datasource = new Datasource(5, 1.2f);
+        datasource = new Datasource(2, 5, 1.2f);
 
         // Basic setup to get the audio from the mic as spectrum
         spectrum = new float[spectrumSize];
@@ -133,11 +135,31 @@ public class SoundAnalyzer : MonoBehaviour
         unselectButton.onClick.AddListener(delegate
         { UnselectButtonClick(unselectButton); });
 
+        averageValuesSlider.onValueChanged.AddListener(delegate
+        { AverageValuesSliderChanged(averageValuesSlider); });
+
         retriggerTimeoutSlider.onValueChanged.AddListener(delegate
         { RetriggerTimeoutValueChanged(retriggerTimeoutSlider); });
 
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
+    }
+
+    void AverageValuesSliderChanged(Slider averageValuesSlider)
+    {
+        int newAverageValues = Mathf.RoundToInt(averageValuesSlider.value);
+
+        // All the notes are updated with the new retrigger timeout value
+        foreach (Note note in datasource.notes)
+        {
+            note.numberOfValuesToAverage = newAverageValues;
+        }
+
+        // Also remember value in datasource for saveing and loading
+        datasource.averageValues = newAverageValues;
+
+        // Update the Text label for feedback
+        averageValuesText.text = "Averaged number of values: " + newAverageValues;
     }
 
     void RetriggerTimeoutValueChanged(Slider retriggerTimeoutSlider)
@@ -154,7 +176,7 @@ public class SoundAnalyzer : MonoBehaviour
         datasource.retriggerTimeoutFrames = newSliderValue;
 
         // Update the Text label for feedback
-        retriggerTimeoutText.text = "Timeout (" + Mathf.RoundToInt(retriggerTimeoutSlider.value) + ")";
+        retriggerTimeoutText.text = "Timeout for retrigger: " + newSliderValue;
     }
 
     void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
@@ -162,14 +184,14 @@ public class SoundAnalyzer : MonoBehaviour
         // All the notes are updated with the new retrigger level value
         foreach (Note note in datasource.notes)
         {
-            note.minRetriggerMinimumLevel = retriggerLevelSlider.value;
+            note.minRetriggerLevel = retriggerLevelSlider.value;
         }
 
         // Also remember value in datasource for saveing and loading
         datasource.retriggerMinimumLevel = retriggerLevelSlider.value;
 
         // Update the Text label for feedback
-        retriggerLevelText.text = "Level (" + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f) + ")";
+        retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f);
     }
 
     void SaveButtonClick(Button saveButton)
@@ -200,10 +222,14 @@ public class SoundAnalyzer : MonoBehaviour
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
-                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerTimeoutFrames, datasource.retriggerMinimumLevel);
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.averageValues, datasource.retriggerTimeoutFrames, datasource.retriggerMinimumLevel);
             }
 
             UpdateDropdownOptions();
+
+            averageValuesSlider.value = datasource.averageValues;
+            retriggerTimeoutSlider.value = datasource.retriggerTimeoutFrames;
+            retriggerLevelSlider.value = datasource.retriggerMinimumLevel;
         }
     }
 
@@ -312,7 +338,7 @@ public class SoundAnalyzer : MonoBehaviour
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, Mathf.RoundToInt(retriggerTimeoutSlider.value), retriggerLevelSlider.value);
+        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, Mathf.RoundToInt(averageValuesSlider.value), Mathf.RoundToInt(retriggerTimeoutSlider.value), retriggerLevelSlider.value);
 
         // Add note to notes list, select new note and update UI
         datasource.notes.Add(newNote);
