@@ -446,9 +446,22 @@ public class SoundAnalyzer : MonoBehaviour
         // Now we get the most updated audio spectrum data
         GetComponent<AudioSource>().GetSpectrumData(spectrum, 0, FFTWindow.BlackmanHarris);
 
-        // For each note, we calculate the level of sound
-        foreach(Note note in datasource.notes)
+        // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
+        for (int i = 0; i < spectrumSize; i++)
         {
+            // But we only consider the lower part, which fits in our texture
+            // TODO: this should be done more genericly, and not be bound to the texture size
+            if (i < spectrumTextureWidth)
+            {
+                // First we colorize the current pixel with the color of the current spectrum value
+                spectrumTexture2D.SetPixel(i, 0, new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0));
+            }
+        }
+
+        // Then we iterate over every note
+        foreach (Note note in datasource.notes)
+        {
+            // For each note, we calculate the level of sound
             float accumulator = 0;
 
             // This is done by adding up all the spectum data from the notes lower to upper bound
@@ -459,44 +472,27 @@ public class SoundAnalyzer : MonoBehaviour
 
             // And we pass the level to the note, which then decides if it got triggered or not
             note.SetValue(accumulator);
-        }
 
-        // Then we loop over the entire spectrum
-        for (int i = 0; i < spectrumSize; i++)
-        {
-            // But we only consider the lower part, which fits in our texture
-            // TODO: this should be done more genericly, and not be bound to the texture size
-            if (i < spectrumTextureWidth)
+            // Then mark the spectrum of the note according to its state
+            if (note.triggered)
             {
-                // First we colorize the current pixel with the color of the current spectrum value
-                spectrumTexture2D.SetPixel(i, 0, new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0));
-
-                // Then we iterate over every note
-                // TODO: this should be done outside the spectrum loop because 0(n²)
-                foreach (Note note in datasource.notes)
+                // Yellow for triggered
+                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.yellow);
+                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.yellow);
+            }
+            else if (note == selectedNote)
+            {
+                // Green for selected
+                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.green);
+                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.green);
+            }
+            else
+            {
+                if (Time.frameCount % 2 == 0)
                 {
-                    // If the current pixel is a bound, we colorize the pixel differently
-                    if (i == note.GetLowerBound() || i == note.GetUpperBound())
-                    {
-                        if (note.triggered)
-                        {
-                            // Yellow for triggered
-                            spectrumTexture2D.SetPixel(i, 0, Color.yellow);
-                        }
-                        else if (note == selectedNote)
-                        {
-                            // Green for selected
-                            spectrumTexture2D.SetPixel(i, 0, Color.green);
-                        }
-                        else
-                        {
-                            if (Time.frameCount % 2 == 0)
-                            {
-                                // And dotted blue for reference lines
-                                spectrumTexture2D.SetPixel(i, 0, Color.blue);
-                            }
-                        }
-                    }
+                    // And dotted blue for reference lines
+                    spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.blue);
+                    spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.blue);
                 }
             }
         }
