@@ -9,6 +9,7 @@ public class Datasource
     public int averageValues;
     public int retriggerTimeoutFrames;
     public float retriggerMinimumLevel;
+    public string selectedAudioDevice;
     public List<Note> notes;
 
     public Datasource(int initialAverageValues, int initialRetriggerTimeoutFrames, float initialRetriggerMinimumLevel)

@@ -6,13 +6,13 @@ using System.Collections.Generic;
 using SFB;
 using System.IO;
 
-[RequireComponent(typeof(AudioSource))]
 public class SoundAnalyzer : MonoBehaviour
 {
     private const int spectrumSize = 8192;
     private float[] spectrum;
 
     public AudioMixer mainMixer;
+    public AudioSource audioSource;
 
     private const int spectrumTextureWidth = 512;
     private const int spectrumTextureHeight = 200;
@@ -27,6 +27,8 @@ public class SoundAnalyzer : MonoBehaviour
     private int timeWhenLastNoteTriggeredInMS;
 
     public RawImage spectrumRawImage;
+
+    public Dropdown inputDeviceDropdown;
 
     public Text selectedNoteText;
 
@@ -74,15 +76,25 @@ public class SoundAnalyzer : MonoBehaviour
 
         // Basic setup to get the audio from the mic as spectrum
         spectrum = new float[spectrumSize];
-        int samplerate = AudioSettings.outputSampleRate;
+        
+        foreach(String device in Microphone.devices)
+        {
+            inputDeviceDropdown.options.Add(new Dropdown.OptionData(device));
+        }
 
-        GetComponent<AudioSource>().clip = Microphone.Start(null, true, 10, samplerate);
-        GetComponent<AudioSource>().loop = true; 
+        if (inputDeviceDropdown.options.Count == 0)
+        {
+            Debug.LogError("No audio device found.");
+            return;
+        }
 
-        // The next line was in the example code, but everything seems to work fine with her excluded
-        // while (!(Microphone.GetPosition(null) > 0)){} 
+        datasource.selectedAudioDevice = Microphone.devices[0];
+        inputDeviceDropdown.value = 0;
+        inputDeviceDropdown.RefreshShownValue();
 
-        GetComponent<AudioSource>().Play();
+        audioSource.clip = Microphone.Start(inputDeviceDropdown.options[0].text, true, 10, AudioSettings.outputSampleRate);
+        audioSource.loop = true; 
+        audioSource.Play();
         mainMixer.SetFloat("Main", -80f);
 
         // Create a new texture which we will use to draw the spectrum into
@@ -102,8 +114,11 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumRawImage.texture = spectrumTexture2D;
 
         // Create all the delegate functions for the UI compnents
+        inputDeviceDropdown.onValueChanged.AddListener(delegate
+        { InputDeviceDropdownValueChanged(inputDeviceDropdown); });
+
         noteSelectorDropdown.onValueChanged.AddListener(delegate 
-        { DropdownValueChanged(noteSelectorDropdown); });
+        { noteSelectorDropdownValueChanged(noteSelectorDropdown); });
 
         upperBoundSlider.onValueChanged.AddListener(delegate 
         { UpperBoundSliderValueChanged(upperBoundSlider); });
@@ -143,6 +158,47 @@ public class SoundAnalyzer : MonoBehaviour
 
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
+    }
+
+    void InputDeviceDropdownValueChanged(Dropdown inputDeviceDropdown)
+    {
+        if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
+        {
+            UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text);
+        }
+    }
+
+    void UpdateAudioSource(string preferedAudioSource)
+    {
+        audioSource.clip.UnloadAudioData();
+        audioSource.Stop();
+
+        int inputDeviceIndex = 0;
+        string inputDevice = inputDeviceDropdown.options[0].text;
+
+        foreach (Dropdown.OptionData optionData in inputDeviceDropdown.options)
+        {
+            if (optionData.text == preferedAudioSource)
+            {
+                inputDevice = preferedAudioSource;
+                inputDeviceIndex = inputDeviceDropdown.options.IndexOf(optionData);
+            }
+        }
+
+        if (inputDevice != preferedAudioSource)
+        {
+            Debug.LogWarning("Unable to find saved audio device, selecting first from list");
+        }
+
+        Microphone.GetDeviceCaps(inputDevice, out int minFrequency, out int maxFrequency);
+
+        audioSource.clip = Microphone.Start(inputDevice, true, 10, maxFrequency);
+        audioSource.loop = true;
+        audioSource.Play();
+
+        datasource.selectedAudioDevice = inputDevice;
+        inputDeviceDropdown.value = inputDeviceIndex;
+        inputDeviceDropdown.RefreshShownValue();
     }
 
     void AverageValuesSliderChanged(Slider averageValuesSlider)
@@ -201,9 +257,12 @@ public class SoundAnalyzer : MonoBehaviour
 
         String saveFilePath = StandaloneFileBrowser.SaveFilePanel("Save File", Application.persistentDataPath, "Kalimba-Hero", "kal");
 
-        StreamWriter writer = new StreamWriter(saveFilePath, false);
-        writer.WriteLine(JsonUtility.ToJson(datasource));
-        writer.Close();
+        if (saveFilePath != "")
+        {
+            StreamWriter writer = new StreamWriter(saveFilePath, false);
+            writer.WriteLine(JsonUtility.ToJson(datasource));
+            writer.Close();
+        }
     }
 
     void LoadButtonClick(Button loadButton)
@@ -218,6 +277,8 @@ public class SoundAnalyzer : MonoBehaviour
 
             // And a root object is recovered from it which then contains the list of notes
             datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
+
+            UpdateAudioSource(datasource.selectedAudioDevice);
 
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
@@ -277,6 +338,7 @@ public class SoundAnalyzer : MonoBehaviour
         // Empty dropdown & unselect
         noteSelectorDropdown.options.Clear();
         UnselectNote();
+        noteSelectorDropdown.RefreshShownValue();
     }
 
     void NextButtonClick(Button nextButton)
@@ -378,9 +440,11 @@ public class SoundAnalyzer : MonoBehaviour
         // Select the currently selected note (if any)
         if (selectedNote != null)
             noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == selectedNote);
+
+        noteSelectorDropdown.RefreshShownValue();
     }
 
-    void DropdownValueChanged(Dropdown change)
+    void noteSelectorDropdownValueChanged(Dropdown change)
     {
         // Options count means no options at all, noting to select
         if (change.options.Count == 0)
@@ -434,6 +498,12 @@ public class SoundAnalyzer : MonoBehaviour
             screenResolution.y = Screen.height;
         }
 
+        // If the audio source is not playing, there is now need to go further
+        if (!audioSource.isPlaying)
+        {
+            return;
+        }
+
         // Then we move the entire spectrum texture by 1 pixel upwards
         for (int x = 0; x < spectrumTextureWidth; x++)
         {
@@ -444,7 +514,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         // Now we get the most updated audio spectrum data
-        GetComponent<AudioSource>().GetSpectrumData(spectrum, 0, FFTWindow.BlackmanHarris);
+        audioSource.GetSpectrumData(spectrum, 0, FFTWindow.BlackmanHarris);
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrumSize; i++)
