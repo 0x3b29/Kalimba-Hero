@@ -121,8 +121,6 @@ public class Note
         SetThresholdSliderParentPosition();
     }
 
-    int thresholdValuePassedFrames = 0;
-
     public void SetValue(float value)
     {
         // Put the new value in the values queue
@@ -135,7 +133,7 @@ public class Note
         // Calculate the rolling average
         float averageValue = values.Sum() / values.Count;
 
-        // This funtion sets the sound level for the note and decides wheather it got triggered or not
+        // Sets the maximum sound level for the note 
         if (value > maxValue)
         {
             maxValue = value;
