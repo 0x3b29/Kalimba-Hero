@@ -1,4 +1,4 @@
-﻿using UnityEngine;
+using UnityEngine;
 using UnityEngine.UI;
 using UnityEngine.Audio;
 using System;
@@ -504,13 +504,13 @@ public class SoundAnalyzer : MonoBehaviour
             return;
         }
 
-        // Then we move the entire spectrum texture by 1 pixel upwards
-        for (int x = 0; x < spectrumTextureWidth; x++)
+        // Then shift the entire texture such that all the pixels are one entire row further down
+        // This is done from back to front because otherwse the first row would be written to all rows
+        Color[] pixels = spectrumTexture2D.GetPixels();
+
+        for (int i = pixels.Length - 1; i >= spectrumTextureWidth; i--)
         {
-            for (int y = spectrumTextureHeight; y > 0; y--)
-            {
-                spectrumTexture2D.SetPixel(x, y + 1, spectrumTexture2D.GetPixel(x, y));
-            }
+            pixels[i] = pixels[i - spectrumTextureWidth];
         }
 
         // Now we get the most updated audio spectrum data
@@ -524,9 +524,11 @@ public class SoundAnalyzer : MonoBehaviour
             if (i < spectrumTextureWidth)
             {
                 // First we colorize the current pixel with the color of the current spectrum value
-                spectrumTexture2D.SetPixel(i, 0, new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0));
+                pixels[i] =  new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0);
             }
         }
+
+        spectrumTexture2D.SetPixels(pixels);
 
         // Then we iterate over every note
         foreach (Note note in datasource.notes)
