@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using SFB;
 using System.IO;
+using TMPro;
 
 public class SoundAnalyzer : MonoBehaviour
 {
@@ -28,11 +29,11 @@ public class SoundAnalyzer : MonoBehaviour
 
     public RawImage spectrumRawImage;
 
-    public Dropdown inputDeviceDropdown;
+    public TMP_Dropdown inputDeviceDropdown;
 
-    public Text selectedNoteText;
+    public TMP_Text selectedNoteText;
 
-    public Dropdown noteSelectorDropdown;
+    public TMP_Dropdown noteSelectorDropdown;
 
     public Slider upperBoundSlider;
     public Slider lowerBoundSlider;
@@ -49,7 +50,7 @@ public class SoundAnalyzer : MonoBehaviour
     public Button unselectButton;
     public Button previousButton;
 
-    public InputField noteNameInput;
+    public TMP_InputField noteNameInput;
 
     public GameObject thresholdSliderPanel;
     public GameObject thresholdSliderPrefab;
@@ -58,11 +59,11 @@ public class SoundAnalyzer : MonoBehaviour
     public Slider retriggerTimeoutSlider;
     public Slider retriggerLevelSlider;
 
-    public Text averageValuesText;
-    public Text retriggerTimeoutText;
-    public Text retriggerLevelText;
+    public TMP_Text averageValuesText;
+    public TMP_Text retriggerTimeoutText;
+    public TMP_Text retriggerLevelText;
 
-    public InputField outputInputField;
+    public TMP_InputField outputInputField;
 
     private void Awake()
     {
@@ -79,7 +80,7 @@ public class SoundAnalyzer : MonoBehaviour
         
         foreach(String device in Microphone.devices)
         {
-            inputDeviceDropdown.options.Add(new Dropdown.OptionData(device));
+            inputDeviceDropdown.options.Add(new TMP_Dropdown.OptionData(device));
         }
 
         if (inputDeviceDropdown.options.Count == 0)
@@ -161,7 +162,7 @@ public class SoundAnalyzer : MonoBehaviour
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
     }
 
-    void InputDeviceDropdownValueChanged(Dropdown inputDeviceDropdown)
+    void InputDeviceDropdownValueChanged(TMP_Dropdown inputDeviceDropdown)
     {
         if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
         {
@@ -178,7 +179,7 @@ public class SoundAnalyzer : MonoBehaviour
         int inputDeviceIndex = 0;
         string inputDevice = inputDeviceDropdown.options[0].text;
 
-        foreach (Dropdown.OptionData optionData in inputDeviceDropdown.options)
+        foreach (TMP_Dropdown.OptionData optionData in inputDeviceDropdown.options)
         {
             if (optionData.text == preferedAudioSource)
             {
@@ -437,7 +438,7 @@ public class SoundAnalyzer : MonoBehaviour
         // Create a new Dropdown entry for each note
         foreach (Note note in datasource.notes)
         {
-            noteSelectorDropdown.options.Add(new Dropdown.OptionData(note.caption));
+            noteSelectorDropdown.options.Add(new TMP_Dropdown.OptionData(note.caption));
         }
 
         // Select the currently selected note (if any)
@@ -447,7 +448,7 @@ public class SoundAnalyzer : MonoBehaviour
         noteSelectorDropdown.RefreshShownValue();
     }
 
-    void noteSelectorDropdownValueChanged(Dropdown change)
+    void noteSelectorDropdownValueChanged(TMP_Dropdown change)
     {
         // Options count means no options at all, noting to select
         if (change.options.Count == 0)
