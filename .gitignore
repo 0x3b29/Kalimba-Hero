@@ -58,3 +58,12 @@ sysinfo.txt
 # Crashlytics generated file
 crashlytics-build.properties
 
+.DS_Store
+.vsconfig
+
+
+# TextMesh Pro files
+[Aa]ssets/TextMesh*Pro/
+
+# User based custom settings
+UserSettings/
