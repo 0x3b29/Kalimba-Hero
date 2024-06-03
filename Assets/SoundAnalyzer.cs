@@ -544,15 +544,30 @@ public class SoundAnalyzer : MonoBehaviour
         {
             // For each note, we calculate the level of sound
             float accumulator = 0;
+            float max = -1;
+            float maxPosition = -1;
 
             // This is done by adding up all the spectum data from the notes lower to upper bound
-            for (int i = note.GetLowerBound(); i < note.GetUpperBound(); i++)
+            for (int i = note.GetLowerBound(); i <= note.GetUpperBound(); i++)
             {
                 accumulator += spectrum[i];
+
+                // Also we want to know the position of the highest sound level
+                if (spectrum[i] > max)
+                {
+                    max = spectrum[i];
+                    maxPosition = i;
+                }
             }
 
-            // And we pass the level to the note, which then decides if it got triggered or not
-            note.SetValue(accumulator);
+            // If the peak was at the lower or the upper bound, chances are high that the peak was outside of our range and we discard the accumulated level
+            if (maxPosition > note.GetLowerBound() && maxPosition < note.GetUpperBound()) {
+                // And we pass the level to the note, which then decides if it got triggered or not
+                note.SetValue(accumulator);
+            } else
+            {
+                note.SetValue(0);
+            }
 
             // Then mark the spectrum of the note according to its state
             if (note.triggered)
