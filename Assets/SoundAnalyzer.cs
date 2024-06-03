@@ -65,6 +65,8 @@ public class SoundAnalyzer : MonoBehaviour
 
     public TMP_InputField outputInputField;
 
+    public Button closeButton;
+
     private void Awake()
     {
         // We initially save the screen resolution to be later able to reacto to resize events
@@ -160,6 +162,9 @@ public class SoundAnalyzer : MonoBehaviour
 
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
+
+        closeButton.onClick.AddListener(delegate
+        { Application.Quit(); });
     }
 
     void InputDeviceDropdownValueChanged(TMP_Dropdown inputDeviceDropdown)
