@@ -92,8 +92,9 @@ public class SoundAnalyzer : MonoBehaviour
         inputDeviceDropdown.value = 0;
         inputDeviceDropdown.RefreshShownValue();
 
-        audioSource.clip = Microphone.Start(inputDeviceDropdown.options[0].text, true, 10, AudioSettings.outputSampleRate);
-        audioSource.loop = true; 
+        audioSource.clip = Microphone.Start(inputDeviceDropdown.options[0].text, true, 1, AudioSettings.outputSampleRate);
+        audioSource.loop = true;
+        while (!(Microphone.GetPosition(null) > 0)) { }
         audioSource.Play();
         mainMixer.SetFloat("Main", -80f);
 
@@ -172,6 +173,7 @@ public class SoundAnalyzer : MonoBehaviour
     {
         audioSource.clip.UnloadAudioData();
         audioSource.Stop();
+        Destroy(audioSource.clip);
 
         int inputDeviceIndex = 0;
         string inputDevice = inputDeviceDropdown.options[0].text;
@@ -192,8 +194,9 @@ public class SoundAnalyzer : MonoBehaviour
 
         Microphone.GetDeviceCaps(inputDevice, out int minFrequency, out int maxFrequency);
 
-        audioSource.clip = Microphone.Start(inputDevice, true, 10, maxFrequency);
+        audioSource.clip = Microphone.Start(inputDevice, true, 1, maxFrequency);
         audioSource.loop = true;
+        while(!(Microphone.GetPosition(null) > 0)) { }
         audioSource.Play();
 
         datasource.selectedAudioDevice = inputDevice;
