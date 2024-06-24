@@ -6,68 +6,93 @@ using System.Collections.Generic;
 using SFB;
 using System.IO;
 using TMPro;
+using System.Linq;
+using System.Collections;
+using Unity.Collections;
+
+public enum SpectrumSize
+{
+    s_128 = 128,
+    s_256 = 256,
+    s_512 = 512,
+    s_1024 = 1024,
+    s_2048 = 2048,
+    s_4096 = 4096,
+    s_8192 = 8192,
+}
 
 public class SoundAnalyzer : MonoBehaviour
 {
-    private const int spectrumSize = 8192;
-    private float[] spectrum;
+    [SerializeField] bool forceResyncDuringNextUpdate = false;
+    [SerializeField] float currentPlaybackOffset;
+    [SerializeField] float maxPlaybackOffset = 0.25f;
 
-    public AudioMixer mainMixer;
-    public AudioSource audioSource;
+    [SerializeField] int targetFrameRate;
+    int oldTargetFrameRate;
 
-    private const int spectrumTextureWidth = 512;
-    private const int spectrumTextureHeight = 200;
-    private Texture2D spectrumTexture2D;
+    [SerializeField] FFTWindow fftWindow;
+    [SerializeField] SpectrumSize spectrumSize = SpectrumSize.s_8192;
+    SpectrumSize oldSpectrumSize;
 
-    private Note selectedNote;
-    private Datasource datasource;
+    float[] spectrum;
 
-    private Vector2 screenResolution;
-    private bool ignoreSliderEvent = false;
+    [SerializeField] AudioMixer mainMixer;
+    [SerializeField] AudioSource audioSource;
 
-    private int timeWhenLastNoteTriggeredInMS;
+    const int spectrumTextureWidth = 512;
+    const int spectrumTextureHeight = 200;
+    Texture2D spectrumTexture2D;
 
-    public RawImage spectrumRawImage;
+    Note selectedNote;
+    Datasource datasource;
 
-    public TMP_Dropdown inputDeviceDropdown;
+    Vector2 screenResolution;
+    bool ignoreSliderEvent = false;
 
-    public TMP_Text selectedNoteText;
+    int timeWhenLastNoteTriggeredInMS;
 
-    public TMP_Dropdown noteSelectorDropdown;
 
-    public Slider upperBoundSlider;
-    public Slider lowerBoundSlider;
+    [SerializeField] RawImage spectrumRawImage;
 
-    public Button saveButton;
-    public Button loadButton;
-    public Button addButton;
-    public Button clearButton;
-    public Button renameButton;
+    [SerializeField] TMP_Dropdown inputDeviceDropdown;
 
-    public Button removeButton;
+    [SerializeField] TMP_Text selectedNoteText;
 
-    public Button nextButton;
-    public Button unselectButton;
-    public Button previousButton;
+    [SerializeField] TMP_Dropdown noteSelectorDropdown;
 
-    public TMP_InputField noteNameInput;
+    [SerializeField] Slider upperBoundSlider;
+    [SerializeField] Slider lowerBoundSlider;
 
-    public GameObject thresholdSliderPanel;
-    public GameObject thresholdSliderPrefab;
+    [SerializeField] Button saveButton;
+    [SerializeField] Button loadButton;
+    [SerializeField] Button addButton;
+    [SerializeField] Button clearButton;
+    [SerializeField] Button renameButton;
 
-    public Slider averageValuesSlider;
-    public Slider retriggerTimeoutSlider;
-    public Slider retriggerLevelSlider;
+    [SerializeField] Button removeButton;
 
-    public TMP_Text averageValuesText;
-    public TMP_Text retriggerTimeoutText;
-    public TMP_Text retriggerLevelText;
+    [SerializeField] Button nextButton;
+    [SerializeField] Button unselectButton;
+    [SerializeField] Button previousButton;
 
-    public TMP_InputField outputInputField;
+    [SerializeField] TMP_InputField noteNameInput;
 
-    public Button closeButton;
+    [SerializeField] GameObject thresholdSliderPanel;
+    [SerializeField] GameObject thresholdSliderPrefab;
 
-    private void Awake()
+    [SerializeField] Slider averageValuesSlider;
+    [SerializeField] Slider retriggerTimeoutSlider;
+    [SerializeField] Slider retriggerLevelSlider;
+
+    [SerializeField] TMP_Text averageValuesText;
+    [SerializeField] TMP_Text retriggerTimeoutText;
+    [SerializeField] TMP_Text retriggerLevelText;
+
+    [SerializeField] TMP_InputField outputInputField;
+
+    [SerializeField] Button closeButton;
+
+    void Awake()
     {
         // We initially save the screen resolution to be later able to reacto to resize events
         screenResolution = new Vector2(Screen.width, Screen.height);
@@ -75,12 +100,16 @@ public class SoundAnalyzer : MonoBehaviour
 
     void Start()
     {
+        Application.targetFrameRate = targetFrameRate;
+        oldTargetFrameRate = targetFrameRate;
+
         datasource = new Datasource(2, 5, 1.2f);
 
         // Basic setup to get the audio from the mic as spectrum
-        spectrum = new float[spectrumSize];
-        
-        foreach(String device in Microphone.devices)
+        spectrum = new float[((int)spectrumSize)];
+        oldSpectrumSize = spectrumSize;
+
+        foreach (String device in Microphone.devices)
         {
             inputDeviceDropdown.options.Add(new TMP_Dropdown.OptionData(device));
         }
@@ -95,11 +124,9 @@ public class SoundAnalyzer : MonoBehaviour
         inputDeviceDropdown.value = 0;
         inputDeviceDropdown.RefreshShownValue();
 
-        audioSource.clip = Microphone.Start(inputDeviceDropdown.options[0].text, true, 1, AudioSettings.outputSampleRate);
-        audioSource.loop = true;
-        while (!(Microphone.GetPosition(null) > 0)) { }
-        audioSource.Play();
-        mainMixer.SetFloat("Main", -80f);
+        string audioDeviceName = inputDeviceDropdown.options[0].text;
+
+        StartCoroutine(UpdateAudioSource(audioDeviceName));
 
         // Create a new texture which we will use to draw the spectrum into
         spectrumTexture2D = new Texture2D(spectrumTextureWidth, spectrumTextureHeight);
@@ -121,38 +148,38 @@ public class SoundAnalyzer : MonoBehaviour
         inputDeviceDropdown.onValueChanged.AddListener(delegate
         { InputDeviceDropdownValueChanged(inputDeviceDropdown); });
 
-        noteSelectorDropdown.onValueChanged.AddListener(delegate 
+        noteSelectorDropdown.onValueChanged.AddListener(delegate
         { noteSelectorDropdownValueChanged(noteSelectorDropdown); });
 
-        upperBoundSlider.onValueChanged.AddListener(delegate 
+        upperBoundSlider.onValueChanged.AddListener(delegate
         { UpperBoundSliderValueChanged(upperBoundSlider); });
 
-        lowerBoundSlider.onValueChanged.AddListener(delegate 
+        lowerBoundSlider.onValueChanged.AddListener(delegate
         { LowerBoundSliderValueChanged(lowerBoundSlider); });
 
         saveButton.onClick.AddListener(delegate
-        { SaveButtonClick(saveButton); });
+        { SaveButtonClick(); });
 
         loadButton.onClick.AddListener(delegate
-        { LoadButtonClick(loadButton); });
+        { LoadButtonClick(); });
 
         clearButton.onClick.AddListener(delegate
-        { ClearButtonClick(clearButton); });
+        { ClearButtonClick(); });
 
         addButton.onClick.AddListener(delegate
-        { AddButtonClick(addButton); });
+        { AddButtonClick(); });
 
         renameButton.onClick.AddListener(delegate
-        { RenameButtonClick(renameButton); });
+        { RenameButtonClick(); });
 
         nextButton.onClick.AddListener(delegate
-        { NextButtonClick(nextButton); });
+        { NextButtonClick(); });
 
         previousButton.onClick.AddListener(delegate
-        { PreviousButtonClick(previousButton); });
+        { PreviousButtonClick(); });
 
         unselectButton.onClick.AddListener(delegate
-        { UnselectButtonClick(unselectButton); });
+        { UnselectButtonClick(); });
 
         averageValuesSlider.onValueChanged.AddListener(delegate
         { AverageValuesSliderChanged(averageValuesSlider); });
@@ -171,15 +198,19 @@ public class SoundAnalyzer : MonoBehaviour
     {
         if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
         {
-            UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text);
+            StartCoroutine(UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text));
         }
     }
 
-    void UpdateAudioSource(string preferedAudioSource)
+    IEnumerator UpdateAudioSource(string preferedAudioSource)
     {
-        audioSource.clip.UnloadAudioData();
-        audioSource.Stop();
-        Destroy(audioSource.clip);
+        if (audioSource.clip)
+        {
+            audioSource.Stop();
+            audioSource.clip.UnloadAudioData();
+            Destroy(audioSource.clip);
+            yield return null;
+        }
 
         int inputDeviceIndex = 0;
         string inputDevice = inputDeviceDropdown.options[0].text;
@@ -200,12 +231,29 @@ public class SoundAnalyzer : MonoBehaviour
 
         Microphone.GetDeviceCaps(inputDevice, out int minFrequency, out int maxFrequency);
 
-        audioSource.clip = Microphone.Start(inputDevice, true, 1, maxFrequency);
-        audioSource.loop = true;
-        while(!(Microphone.GetPosition(null) > 0)) { }
-        audioSource.Play();
-
         datasource.selectedAudioDevice = inputDevice;
+        datasource.selectedAudioDeviceFrequency = maxFrequency;
+
+        audioSource.clip = Microphone.Start(inputDevice, true, 10, maxFrequency);
+        audioSource.loop = true;
+
+        int tries = 0;
+        while (Microphone.GetPosition(inputDevice) < 0) 
+        { 
+            yield return null; 
+            if (tries > 100) { 
+                Debug.Log("Did not start"); 
+                break; 
+            } 
+            tries++; 
+        }
+
+        yield return null;
+
+        float position = Microphone.GetPosition(inputDevice) / (float)maxFrequency;
+
+        StartCoroutine(SyncAudioSourceWithMicrophoneAsync(position));
+
         inputDeviceDropdown.value = inputDeviceIndex;
         inputDeviceDropdown.RefreshShownValue();
     }
@@ -259,7 +307,7 @@ public class SoundAnalyzer : MonoBehaviour
         retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f);
     }
 
-    void SaveButtonClick(Button saveButton)
+    void SaveButtonClick()
     {
         // Currently, the output is logged where it can be recovered to be put in the kalimbaSetup string
         Debug.Log(JsonUtility.ToJson(datasource));
@@ -274,7 +322,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void LoadButtonClick(Button loadButton)
+    void LoadButtonClick()
     {
         String[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", new[] { new ExtensionFilter("Kalimba Hero", "kal") }, true);
 
@@ -287,7 +335,7 @@ public class SoundAnalyzer : MonoBehaviour
             // And a root object is recovered from it which then contains the list of notes
             datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
 
-            UpdateAudioSource(datasource.selectedAudioDevice);
+            StartCoroutine(UpdateAudioSource(datasource.selectedAudioDevice));
 
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
@@ -317,7 +365,7 @@ public class SoundAnalyzer : MonoBehaviour
     {
         selectedNote = note;
         selectedNoteText.text = note.caption;
-        
+
         // Try to find the correct entry in the dropdown
         noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == note);
 
@@ -333,13 +381,13 @@ public class SoundAnalyzer : MonoBehaviour
         upperBoundSlider.gameObject.SetActive(true);
     }
 
-    void ClearButtonClick(Button clearButton)
+    void ClearButtonClick()
     {
         // Remove all notes from list
         datasource.notes.Clear();
 
         // Destroy all sliders
-        foreach(Transform child in thresholdSliderPanel.transform)
+        foreach (Transform child in thresholdSliderPanel.transform)
         {
             Destroy(child.gameObject);
         }
@@ -350,7 +398,7 @@ public class SoundAnalyzer : MonoBehaviour
         noteSelectorDropdown.RefreshShownValue();
     }
 
-    void NextButtonClick(Button nextButton)
+    void NextButtonClick()
     {
         Note nextNote;
 
@@ -374,7 +422,7 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(nextNote);
     }
 
-    void PreviousButtonClick(Button previousButton)
+    void PreviousButtonClick()
     {
         Note previousNote;
 
@@ -398,12 +446,12 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(previousNote);
     }
 
-    void UnselectButtonClick(Button unselectButton)
+    void UnselectButtonClick()
     {
         UnselectNote();
     }
 
-    void AddButtonClick(Button addButton)
+    void AddButtonClick()
     {
         // Create new note
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
@@ -417,7 +465,7 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(newNote);
     }
 
-    void RenameButtonClick(Button renameButton)
+    void RenameButtonClick()
     {
         if (selectedNote != null)
         {
@@ -427,7 +475,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void RemoveButtonClick(Button removeButton)
+    void RemoveButtonClick()
     {
         // Remove note to notes list, unselect note and update UI
         datasource.notes.Remove(selectedNote);
@@ -491,8 +539,28 @@ public class SoundAnalyzer : MonoBehaviour
         selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
     }
 
+    IEnumerator SyncAudioSourceWithMicrophoneAsync(float microphonePosition)
+    {
+        audioSource.Stop();
+        yield return null;
+        audioSource.time = microphonePosition;
+        yield return null;
+        audioSource.Play();
+    }
+
     void Update()
     {
+        float audioSourceTime = audioSource.time;
+        float microphonePosition = Microphone.GetPosition(datasource.selectedAudioDevice) / (float)datasource.selectedAudioDeviceFrequency;
+        currentPlaybackOffset = audioSourceTime - microphonePosition;
+
+        if (audioSource.isPlaying && (forceResyncDuringNextUpdate || Mathf.Abs(currentPlaybackOffset) > maxPlaybackOffset))
+        {
+            forceResyncDuringNextUpdate = false;
+            Debug.Log("Resynced! audioSourceTime: " + audioSourceTime + " microphonePosition: " + microphonePosition + " delta" + currentPlaybackOffset);
+            StartCoroutine(SyncAudioSourceWithMicrophoneAsync(microphonePosition));
+        }
+
         // First we check if the screen size changed
         if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
         {
@@ -507,6 +575,23 @@ public class SoundAnalyzer : MonoBehaviour
             screenResolution.y = Screen.height;
         }
 
+        if (oldSpectrumSize != spectrumSize)
+        {
+            spectrum = new float[(int)spectrumSize];
+            oldSpectrumSize = spectrumSize;
+        }
+
+        if (oldTargetFrameRate != targetFrameRate)
+        {
+            Application.targetFrameRate = targetFrameRate;
+            oldTargetFrameRate = targetFrameRate;
+        }
+
+        processAudio();
+    }
+
+    void processAudio()
+    {
         // If the audio source is not playing, there is now need to go further
         if (!audioSource.isPlaying)
         {
@@ -523,17 +608,17 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         // Now we get the most updated audio spectrum data
-        audioSource.GetSpectrumData(spectrum, 0, FFTWindow.BlackmanHarris);
+        audioSource.GetSpectrumData(spectrum, 0, fftWindow);
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
-        for (int i = 0; i < spectrumSize; i++)
+        for (int i = 0; i < (int)spectrumSize; i++)
         {
             // But we only consider the lower part, which fits in our texture
             // TODO: this should be done more genericly, and not be bound to the texture size
             if (i < spectrumTextureWidth)
             {
                 // First we colorize the current pixel with the color of the current spectrum value
-                pixels[i] =  new Color(MapRange(spectrum[i], 0, 0.01f, 0, 1), 0, 0);
+                pixels[i] = MapValueToColor(spectrum[i]);
             }
         }
 
@@ -561,10 +646,12 @@ public class SoundAnalyzer : MonoBehaviour
             }
 
             // If the peak was at the lower or the upper bound, chances are high that the peak was outside of our range and we discard the accumulated level
-            if (maxPosition > note.GetLowerBound() && maxPosition < note.GetUpperBound()) {
+            if (maxPosition > note.GetLowerBound() && maxPosition < note.GetUpperBound())
+            {
                 // And we pass the level to the note, which then decides if it got triggered or not
                 note.SetValue(accumulator);
-            } else
+            }
+            else
             {
                 note.SetValue(0);
             }
@@ -598,6 +685,32 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumRawImage.texture = spectrumTexture2D;
     }
 
+    // Method to map a float value to a color
+    public static Color MapValueToColor(float value)
+    {
+        // Define the start (green) and end (red) colors
+        Color blackColor = Color.black;
+        Color greenColor = Color.green;
+        Color redColor = Color.red;
+
+        // Clamp the value between 0 and 0.02
+        value = Mathf.Clamp(value, 0f, 0.02f);
+
+        // Interpolate colors based on the value range
+        if (value <= 0.01f)
+        {
+            // Interpolate from black to green
+            float normalizedValue = value / 0.01f;
+            return Color.Lerp(blackColor, greenColor, normalizedValue);
+        }
+        else
+        {
+            // Interpolate from green to red
+            float normalizedValue = (value - 0.01f) / 0.01f;
+            return Color.Lerp(greenColor, redColor, normalizedValue);
+        }
+    }
+
     public static float MapRange(float value, float inputRangeFrom, float inputRangeTo, float outputRangeFrom, float outputRangeTo)
     {
         // This line maps a value from one range to another
@@ -607,7 +720,7 @@ public class SoundAnalyzer : MonoBehaviour
     public void UpdateUIForTriggeredNote(string note)
     {
         // This funciton is called from the notes to update the update the UI
- 
+
         if (outputInputField.text == "")
         {
             // If the output field is empty, we set the triggered note and remember the time

@@ -10,6 +10,7 @@ public class Datasource
     public int retriggerTimeoutFrames;
     public float retriggerMinimumLevel;
     public string selectedAudioDevice;
+    public int selectedAudioDeviceFrequency;
     public List<Note> notes;
 
     public Datasource(int initialAverageValues, int initialRetriggerTimeoutFrames, float initialRetriggerMinimumLevel)

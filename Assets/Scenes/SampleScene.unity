@@ -38,7 +38,7 @@ RenderSettings:
   m_ReflectionIntensity: 1
   m_CustomReflection: {fileID: 0}
   m_Sun: {fileID: 705507994}
-  m_IndirectSpecularColor: {r: 0.44657874, g: 0.49641275, b: 0.5748172, a: 1}
+  m_IndirectSpecularColor: {r: 0.44657898, g: 0.4964133, b: 0.5748178, a: 1}
   m_UseRadianceAmbientProbe: 0
 --- !u!157 &3
 LightmapSettings:
@@ -1734,7 +1734,7 @@ MonoBehaviour:
   m_InputType: 0
   m_AsteriskChar: 42
   m_KeyboardType: 0
-  m_LineType: 0
+  m_LineType: 2
   m_HideMobileInput: 0
   m_HideSoftKeyboard: 0
   m_CharacterValidation: 0
@@ -2252,9 +2252,9 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 1
+  m_enableWordWrapping: 0
   m_wordWrappingRatios: 0.4
-  m_overflowMode: 0
+  m_overflowMode: 3
   m_linkedTextComponent: {fileID: 0}
   parentLinkedComponent: {fileID: 0}
   m_enableKerning: 1
@@ -5279,8 +5279,8 @@ GameObject:
   - component: {fileID: 963194228}
   - component: {fileID: 963194227}
   - component: {fileID: 963194226}
-  - component: {fileID: 963194229}
   - component: {fileID: 963194230}
+  - component: {fileID: 963194231}
   m_Layer: 0
   m_Name: Main Camera
   m_TagString: MainCamera
@@ -5354,47 +5354,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &963194229
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 963194225}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: bcc4e666a21f30946a227829f26b13b6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  mainMixer: {fileID: 24100000, guid: 4af1557f04cc707408ea18bd98d9b70c, type: 2}
-  audioSource: {fileID: 963194230}
-  spectrumRawImage: {fileID: 978072849}
-  inputDeviceDropdown: {fileID: 785239610}
-  selectedNoteText: {fileID: 1327905518}
-  noteSelectorDropdown: {fileID: 1673157586}
-  upperBoundSlider: {fileID: 837797778}
-  lowerBoundSlider: {fileID: 1147594968}
-  saveButton: {fileID: 989824787}
-  loadButton: {fileID: 688116815}
-  addButton: {fileID: 233757177}
-  clearButton: {fileID: 6318388}
-  renameButton: {fileID: 1945013999}
-  removeButton: {fileID: 1618040119}
-  nextButton: {fileID: 338269746}
-  unselectButton: {fileID: 868798726}
-  previousButton: {fileID: 84533770}
-  noteNameInput: {fileID: 741410001}
-  thresholdSliderPanel: {fileID: 594624505}
-  thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
-    type: 3}
-  averageValuesSlider: {fileID: 602439933}
-  retriggerTimeoutSlider: {fileID: 870224511}
-  retriggerLevelSlider: {fileID: 34166772}
-  averageValuesText: {fileID: 431264313}
-  retriggerTimeoutText: {fileID: 937330276}
-  retriggerLevelText: {fileID: 302799826}
-  outputInputField: {fileID: 210566733}
-  closeButton: {fileID: 944979581}
 --- !u!82 &963194230
 AudioSource:
   m_ObjectHideFlags: 0
@@ -5420,7 +5379,7 @@ AudioSource:
   MaxDistance: 500
   Pan2D: 0
   rolloffMode: 0
-  BypassEffects: 0
+  BypassEffects: 1
   BypassListenerEffects: 0
   BypassReverbZones: 0
   rolloffCustomCurve:
@@ -5492,6 +5451,53 @@ AudioSource:
     m_PreInfinity: 2
     m_PostInfinity: 2
     m_RotationOrder: 4
+--- !u!114 &963194231
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 963194225}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: bcc4e666a21f30946a227829f26b13b6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  forceResyncDuringNextUpdate: 0
+  currentPlaybackOffset: 0
+  maxPlaybackOffset: 0.25
+  targetFrameRate: 60
+  fftWindow: 5
+  spectrumSize: 8192
+  mainMixer: {fileID: 24100000, guid: 4af1557f04cc707408ea18bd98d9b70c, type: 2}
+  audioSource: {fileID: 963194230}
+  spectrumRawImage: {fileID: 978072849}
+  inputDeviceDropdown: {fileID: 785239610}
+  selectedNoteText: {fileID: 1327905518}
+  noteSelectorDropdown: {fileID: 1673157586}
+  upperBoundSlider: {fileID: 837797778}
+  lowerBoundSlider: {fileID: 1147594968}
+  saveButton: {fileID: 989824787}
+  loadButton: {fileID: 688116815}
+  addButton: {fileID: 233757177}
+  clearButton: {fileID: 6318388}
+  renameButton: {fileID: 1945013999}
+  removeButton: {fileID: 1618040119}
+  nextButton: {fileID: 338269746}
+  unselectButton: {fileID: 868798726}
+  previousButton: {fileID: 84533770}
+  noteNameInput: {fileID: 741410001}
+  thresholdSliderPanel: {fileID: 594624505}
+  thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
+    type: 3}
+  averageValuesSlider: {fileID: 602439933}
+  retriggerTimeoutSlider: {fileID: 870224511}
+  retriggerLevelSlider: {fileID: 34166772}
+  averageValuesText: {fileID: 431264313}
+  retriggerTimeoutText: {fileID: 937330276}
+  retriggerLevelText: {fileID: 302799826}
+  outputInputField: {fileID: 210566733}
+  closeButton: {fileID: 944979581}
 --- !u!1 &970736486
 GameObject:
   m_ObjectHideFlags: 0
@@ -6409,7 +6415,7 @@ MonoBehaviour:
   m_lineSpacingMax: 0
   m_paragraphSpacing: 0
   m_charWidthMaxAdj: 0
-  m_enableWordWrapping: 0
+  m_enableWordWrapping: 1
   m_wordWrappingRatios: 0.4
   m_overflowMode: 0
   m_linkedTextComponent: {fileID: 0}
