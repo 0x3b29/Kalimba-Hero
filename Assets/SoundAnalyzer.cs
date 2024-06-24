@@ -173,7 +173,10 @@ public class SoundAnalyzer : MonoBehaviour
     {
         if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
         {
-            audioHandler.UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text);
+            string deviceName = inputDeviceDropdown.options[inputDeviceDropdown.value].text;
+
+            audioHandler.UpdateAudioSource(deviceName);
+            datasource.selectedAudioDevice = deviceName;
         }
     }
 
@@ -231,7 +234,7 @@ public class SoundAnalyzer : MonoBehaviour
         // Currently, the output is logged where it can be recovered to be put in the kalimbaSetup string
         Debug.Log(JsonUtility.ToJson(datasource));
 
-        String saveFilePath = StandaloneFileBrowser.SaveFilePanel("Save File", Application.persistentDataPath, "Kalimba-Hero", "kal");
+        string saveFilePath = StandaloneFileBrowser.SaveFilePanel("Save File", Application.persistentDataPath, "Kalimba-Hero", "kal");
 
         if (saveFilePath != "")
         {
@@ -258,6 +261,21 @@ public class SoundAnalyzer : MonoBehaviour
             if (!Microphone.devices.Any(x => x.Equals(datasource.selectedAudioDevice)))
             {
                 datasource.selectedAudioDevice = Microphone.devices[0];
+            }
+            else
+            {
+                int inputDeviceIndex = 0;
+
+                foreach (TMP_Dropdown.OptionData optionData in inputDeviceDropdown.options)
+                {
+                    if (optionData.text.Equals(datasource.selectedAudioDevice))
+                    {
+                        inputDeviceIndex = inputDeviceDropdown.options.IndexOf(optionData);
+                    }
+                }
+
+                inputDeviceDropdown.value = inputDeviceIndex;
+                inputDeviceDropdown.RefreshShownValue();
             }
 
             audioHandler.UpdateAudioSource(datasource.selectedAudioDevice);
