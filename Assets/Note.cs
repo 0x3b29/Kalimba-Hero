@@ -85,8 +85,8 @@ public class Note
         float containerWidth = thresholdSliderPanel.GetComponent<RectTransform>().rect.width;
 
         // Map the lower and upper bounds to positions
-        float lowerPos = SoundAnalyzer.MapRange(lowerBound, 0, 512, 0, containerWidth);
-        float upperPos = SoundAnalyzer.MapRange(upperBound, 0, 512, 0, containerWidth);
+        float lowerPos = Helpers.MapRange(lowerBound, 0, 512, 0, containerWidth);
+        float upperPos = Helpers.MapRange(upperBound, 0, 512, 0, containerWidth);
 
         // Then calculate the center of these two positions
         localPosition.x = lowerPos + ((upperPos - lowerPos) / 2);

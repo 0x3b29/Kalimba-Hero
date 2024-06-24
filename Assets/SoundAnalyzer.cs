@@ -10,34 +10,13 @@ using System.Linq;
 using System.Collections;
 using Unity.Collections;
 
-public enum SpectrumSize
-{
-    s_128 = 128,
-    s_256 = 256,
-    s_512 = 512,
-    s_1024 = 1024,
-    s_2048 = 2048,
-    s_4096 = 4096,
-    s_8192 = 8192,
-}
-
 public class SoundAnalyzer : MonoBehaviour
 {
-    [SerializeField] bool forceResyncDuringNextUpdate = false;
-    [SerializeField] float currentPlaybackOffset;
-    [SerializeField] float maxPlaybackOffset = 0.25f;
+    [SerializeField]
+    AudioHandler audioHandler;
 
     [SerializeField] int targetFrameRate;
     int oldTargetFrameRate;
-
-    [SerializeField] FFTWindow fftWindow;
-    [SerializeField] SpectrumSize spectrumSize = SpectrumSize.s_8192;
-    SpectrumSize oldSpectrumSize;
-
-    float[] spectrum;
-
-    [SerializeField] AudioMixer mainMixer;
-    [SerializeField] AudioSource audioSource;
 
     const int spectrumTextureWidth = 512;
     const int spectrumTextureHeight = 200;
@@ -105,10 +84,6 @@ public class SoundAnalyzer : MonoBehaviour
 
         datasource = new Datasource(2, 5, 1.2f);
 
-        // Basic setup to get the audio from the mic as spectrum
-        spectrum = new float[((int)spectrumSize)];
-        oldSpectrumSize = spectrumSize;
-
         foreach (String device in Microphone.devices)
         {
             inputDeviceDropdown.options.Add(new TMP_Dropdown.OptionData(device));
@@ -126,7 +101,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         string audioDeviceName = inputDeviceDropdown.options[0].text;
 
-        StartCoroutine(UpdateAudioSource(audioDeviceName));
+        audioHandler.UpdateAudioSource(audioDeviceName);
 
         // Create a new texture which we will use to draw the spectrum into
         spectrumTexture2D = new Texture2D(spectrumTextureWidth, spectrumTextureHeight);
@@ -198,64 +173,8 @@ public class SoundAnalyzer : MonoBehaviour
     {
         if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
         {
-            StartCoroutine(UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text));
+            audioHandler.UpdateAudioSource(inputDeviceDropdown.options[inputDeviceDropdown.value].text);
         }
-    }
-
-    IEnumerator UpdateAudioSource(string preferedAudioSource)
-    {
-        if (audioSource.clip)
-        {
-            audioSource.Stop();
-            audioSource.clip.UnloadAudioData();
-            Destroy(audioSource.clip);
-            yield return null;
-        }
-
-        int inputDeviceIndex = 0;
-        string inputDevice = inputDeviceDropdown.options[0].text;
-
-        foreach (TMP_Dropdown.OptionData optionData in inputDeviceDropdown.options)
-        {
-            if (optionData.text == preferedAudioSource)
-            {
-                inputDevice = preferedAudioSource;
-                inputDeviceIndex = inputDeviceDropdown.options.IndexOf(optionData);
-            }
-        }
-
-        if (inputDevice != preferedAudioSource)
-        {
-            Debug.LogWarning("Unable to find saved audio device, selecting first from list");
-        }
-
-        Microphone.GetDeviceCaps(inputDevice, out int minFrequency, out int maxFrequency);
-
-        datasource.selectedAudioDevice = inputDevice;
-        datasource.selectedAudioDeviceFrequency = maxFrequency;
-
-        audioSource.clip = Microphone.Start(inputDevice, true, 10, maxFrequency);
-        audioSource.loop = true;
-
-        int tries = 0;
-        while (Microphone.GetPosition(inputDevice) < 0) 
-        { 
-            yield return null; 
-            if (tries > 100) { 
-                Debug.Log("Did not start"); 
-                break; 
-            } 
-            tries++; 
-        }
-
-        yield return null;
-
-        float position = Microphone.GetPosition(inputDevice) / (float)maxFrequency;
-
-        StartCoroutine(SyncAudioSourceWithMicrophoneAsync(position));
-
-        inputDeviceDropdown.value = inputDeviceIndex;
-        inputDeviceDropdown.RefreshShownValue();
     }
 
     void AverageValuesSliderChanged(Slider averageValuesSlider)
@@ -324,18 +243,24 @@ public class SoundAnalyzer : MonoBehaviour
 
     void LoadButtonClick()
     {
-        String[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", new[] { new ExtensionFilter("Kalimba Hero", "kal") }, true);
+        string[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", new[] { new ExtensionFilter("Kalimba Hero", "kal") }, true);
 
         if (paths.Length > 0 && File.Exists(paths[0]))
         {
             StreamReader reader = new StreamReader(paths[0]);
-            String kalimbaSetup = reader.ReadToEnd();
+            string kalimbaSetup = reader.ReadToEnd();
             reader.Close();
 
             // And a root object is recovered from it which then contains the list of notes
             datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
 
-            StartCoroutine(UpdateAudioSource(datasource.selectedAudioDevice));
+            // In case previously selected Mic is not available, we select the first one that is
+            if (!Microphone.devices.Any(x => x.Equals(datasource.selectedAudioDevice)))
+            {
+                datasource.selectedAudioDevice = Microphone.devices[0];
+            }
+
+            audioHandler.UpdateAudioSource(datasource.selectedAudioDevice);
 
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
@@ -539,28 +464,8 @@ public class SoundAnalyzer : MonoBehaviour
         selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
     }
 
-    IEnumerator SyncAudioSourceWithMicrophoneAsync(float microphonePosition)
-    {
-        audioSource.Stop();
-        yield return null;
-        audioSource.time = microphonePosition;
-        yield return null;
-        audioSource.Play();
-    }
-
     void Update()
     {
-        float audioSourceTime = audioSource.time;
-        float microphonePosition = Microphone.GetPosition(datasource.selectedAudioDevice) / (float)datasource.selectedAudioDeviceFrequency;
-        currentPlaybackOffset = audioSourceTime - microphonePosition;
-
-        if (audioSource.isPlaying && (forceResyncDuringNextUpdate || Mathf.Abs(currentPlaybackOffset) > maxPlaybackOffset))
-        {
-            forceResyncDuringNextUpdate = false;
-            Debug.Log("Resynced! audioSourceTime: " + audioSourceTime + " microphonePosition: " + microphonePosition + " delta" + currentPlaybackOffset);
-            StartCoroutine(SyncAudioSourceWithMicrophoneAsync(microphonePosition));
-        }
-
         // First we check if the screen size changed
         if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
         {
@@ -575,12 +480,6 @@ public class SoundAnalyzer : MonoBehaviour
             screenResolution.y = Screen.height;
         }
 
-        if (oldSpectrumSize != spectrumSize)
-        {
-            spectrum = new float[(int)spectrumSize];
-            oldSpectrumSize = spectrumSize;
-        }
-
         if (oldTargetFrameRate != targetFrameRate)
         {
             Application.targetFrameRate = targetFrameRate;
@@ -592,12 +491,6 @@ public class SoundAnalyzer : MonoBehaviour
 
     void processAudio()
     {
-        // If the audio source is not playing, there is now need to go further
-        if (!audioSource.isPlaying)
-        {
-            return;
-        }
-
         // Then shift the entire texture such that all the pixels are one entire row further down
         // This is done from back to front because otherwse the first row would be written to all rows
         Color[] pixels = spectrumTexture2D.GetPixels();
@@ -607,18 +500,19 @@ public class SoundAnalyzer : MonoBehaviour
             pixels[i] = pixels[i - spectrumTextureWidth];
         }
 
-        // Now we get the most updated audio spectrum data
-        audioSource.GetSpectrumData(spectrum, 0, fftWindow);
+
+
+        float[] spectrum = audioHandler.GetSpectrumData();
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
-        for (int i = 0; i < (int)spectrumSize; i++)
+        for (int i = 0; i < spectrum.Length; i++)
         {
             // But we only consider the lower part, which fits in our texture
             // TODO: this should be done more genericly, and not be bound to the texture size
             if (i < spectrumTextureWidth)
             {
                 // First we colorize the current pixel with the color of the current spectrum value
-                pixels[i] = MapValueToColor(spectrum[i]);
+                pixels[i] = Helpers.MapValueToColor(spectrum[i]);
             }
         }
 
@@ -683,38 +577,6 @@ public class SoundAnalyzer : MonoBehaviour
         // Finally we apply and update the texture
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
-    }
-
-    // Method to map a float value to a color
-    public static Color MapValueToColor(float value)
-    {
-        // Define the start (green) and end (red) colors
-        Color blackColor = Color.black;
-        Color greenColor = Color.green;
-        Color redColor = Color.red;
-
-        // Clamp the value between 0 and 0.02
-        value = Mathf.Clamp(value, 0f, 0.02f);
-
-        // Interpolate colors based on the value range
-        if (value <= 0.01f)
-        {
-            // Interpolate from black to green
-            float normalizedValue = value / 0.01f;
-            return Color.Lerp(blackColor, greenColor, normalizedValue);
-        }
-        else
-        {
-            // Interpolate from green to red
-            float normalizedValue = (value - 0.01f) / 0.01f;
-            return Color.Lerp(greenColor, redColor, normalizedValue);
-        }
-    }
-
-    public static float MapRange(float value, float inputRangeFrom, float inputRangeTo, float outputRangeFrom, float outputRangeTo)
-    {
-        // This line maps a value from one range to another
-        return (value - inputRangeFrom) * (outputRangeTo - outputRangeFrom) / (inputRangeTo - inputRangeFrom) + outputRangeFrom;
     }
 
     public void UpdateUIForTriggeredNote(string note)
