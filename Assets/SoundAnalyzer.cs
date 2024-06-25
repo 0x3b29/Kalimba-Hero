@@ -7,8 +7,6 @@ using SFB;
 using System.IO;
 using TMPro;
 using System.Linq;
-using System.Collections;
-using Unity.Collections;
 
 public class SoundAnalyzer : MonoBehaviour
 {
@@ -18,8 +16,10 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] int targetFrameRate;
     int oldTargetFrameRate;
 
+    [SerializeField] float soundAverage;
+
     const int spectrumTextureWidth = 512;
-    const int spectrumTextureHeight = 200;
+    const int spectrumTextureHeight = 400;
     Texture2D spectrumTexture2D;
 
     Note selectedNote;
@@ -54,20 +54,18 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button unselectButton;
     [SerializeField] Button previousButton;
 
+
     [SerializeField] TMP_InputField noteNameInput;
 
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
 
-    [SerializeField] Slider averageValuesSlider;
-    [SerializeField] Slider retriggerTimeoutSlider;
-    [SerializeField] Slider retriggerLevelSlider;
 
-    [SerializeField] TMP_Text averageValuesText;
-    [SerializeField] TMP_Text retriggerTimeoutText;
+    [SerializeField] Slider retriggerLevelSlider;
     [SerializeField] TMP_Text retriggerLevelText;
 
     [SerializeField] TMP_InputField outputInputField;
+    [SerializeField] Button clearOutputButton;
 
     [SerializeField] Button closeButton;
 
@@ -82,7 +80,7 @@ public class SoundAnalyzer : MonoBehaviour
         Application.targetFrameRate = targetFrameRate;
         oldTargetFrameRate = targetFrameRate;
 
-        datasource = new Datasource(2, 5, 1.2f);
+        datasource = new Datasource(1.2f);
 
         foreach (String device in Microphone.devices)
         {
@@ -156,14 +154,13 @@ public class SoundAnalyzer : MonoBehaviour
         unselectButton.onClick.AddListener(delegate
         { UnselectButtonClick(); });
 
-        averageValuesSlider.onValueChanged.AddListener(delegate
-        { AverageValuesSliderChanged(averageValuesSlider); });
-
-        retriggerTimeoutSlider.onValueChanged.AddListener(delegate
-        { RetriggerTimeoutValueChanged(retriggerTimeoutSlider); });
-
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
+
+        clearOutputButton.onClick.AddListener(delegate
+        {
+            outputInputField.text = "";
+        });
 
         closeButton.onClick.AddListener(delegate
         { Application.Quit(); });
@@ -178,40 +175,6 @@ public class SoundAnalyzer : MonoBehaviour
             audioHandler.UpdateAudioSource(deviceName);
             datasource.selectedAudioDevice = deviceName;
         }
-    }
-
-    void AverageValuesSliderChanged(Slider averageValuesSlider)
-    {
-        int newAverageValues = Mathf.RoundToInt(averageValuesSlider.value);
-
-        // All the notes are updated with the new retrigger timeout value
-        foreach (Note note in datasource.notes)
-        {
-            note.numberOfValuesToAverage = newAverageValues;
-        }
-
-        // Also remember value in datasource for saveing and loading
-        datasource.averageValues = newAverageValues;
-
-        // Update the Text label for feedback
-        averageValuesText.text = "Averaged number of values: " + newAverageValues;
-    }
-
-    void RetriggerTimeoutValueChanged(Slider retriggerTimeoutSlider)
-    {
-        int newSliderValue = Mathf.RoundToInt(retriggerTimeoutSlider.value);
-
-        // All the notes are updated with the new retrigger timeout value
-        foreach (Note note in datasource.notes)
-        {
-            note.minRetriggerTimeoutFrames = newSliderValue;
-        }
-
-        // Also remember value in datasource for saveing and loading
-        datasource.retriggerTimeoutFrames = newSliderValue;
-
-        // Update the Text label for feedback
-        retriggerTimeoutText.text = "Timeout for retrigger: " + newSliderValue;
     }
 
     void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
@@ -283,13 +246,11 @@ public class SoundAnalyzer : MonoBehaviour
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
-                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.averageValues, datasource.retriggerTimeoutFrames, datasource.retriggerMinimumLevel);
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerMinimumLevel);
             }
 
             UpdateDropdownOptions();
 
-            averageValuesSlider.value = datasource.averageValues;
-            retriggerTimeoutSlider.value = datasource.retriggerTimeoutFrames;
             retriggerLevelSlider.value = datasource.retriggerMinimumLevel;
         }
     }
@@ -400,7 +361,7 @@ public class SoundAnalyzer : MonoBehaviour
         Note newNote = new Note(noteNameInput.text, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, Mathf.RoundToInt(averageValuesSlider.value), Mathf.RoundToInt(retriggerTimeoutSlider.value), retriggerLevelSlider.value);
+        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value);
 
         // Add note to notes list, select new note and update UI
         datasource.notes.Add(newNote);
@@ -518,13 +479,15 @@ public class SoundAnalyzer : MonoBehaviour
             pixels[i] = pixels[i - spectrumTextureWidth];
         }
 
-
-
         float[] spectrum = audioHandler.GetSpectrumData();
+
+        float soundLevel = 0;
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrum.Length; i++)
         {
+            soundLevel += spectrum[i];
+
             // But we only consider the lower part, which fits in our texture
             // TODO: this should be done more genericly, and not be bound to the texture size
             if (i < spectrumTextureWidth)
@@ -534,15 +497,19 @@ public class SoundAnalyzer : MonoBehaviour
             }
         }
 
+        soundAverage = soundLevel / spectrum.Length * 100000;
+
         spectrumTexture2D.SetPixels(pixels);
 
         // Then we iterate over every note
         foreach (Note note in datasource.notes)
         {
+            note.IncFrameCounter();
+
             // For each note, we calculate the level of sound
             float accumulator = 0;
             float max = -1;
-            float maxPosition = -1;
+            int maxPosition = -1;
 
             // This is done by adding up all the spectum data from the notes lower to upper bound
             for (int i = note.GetLowerBound(); i <= note.GetUpperBound(); i++)
@@ -557,23 +524,50 @@ public class SoundAnalyzer : MonoBehaviour
                 }
             }
 
-            // If the peak was at the lower or the upper bound, chances are high that the peak was outside of our range and we discard the accumulated level
-            if (maxPosition > note.GetLowerBound() && maxPosition < note.GetUpperBound())
+            int peakPosition = maxPosition;
+            int direction;
+
+            if (spectrum[peakPosition + 1] > spectrum[peakPosition - 1])
             {
-                // And we pass the level to the note, which then decides if it got triggered or not
-                note.SetValue(accumulator);
+                direction = 1;
             }
             else
             {
-                note.SetValue(0);
+                direction = -1;
+            }
+
+            if (note.thresholdValue > accumulator)
+            {
+                while (spectrum[peakPosition + direction] > spectrum[peakPosition])
+                {
+                    peakPosition += direction;
+                }
+            }
+
+            if (peakPosition < note.GetUpperBound() && peakPosition > note.GetLowerBound())
+            {
+                note.SetValue(accumulator);
             }
 
             // Then mark the spectrum of the note according to its state
-            if (note.triggered)
+            if (note.noteState != NoteState.notTriggered)
             {
                 // Yellow for triggered
-                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.yellow);
-                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.yellow);
+
+                if (note.framesSinceTriggered == 0)
+                {
+                    int xMin = Mathf.Max(note.GetLowerBound() - 5, 0);
+                    int xMax = Mathf.Min(note.GetUpperBound() + 5, spectrumTextureWidth);
+
+                    for (int i = xMin; i < xMax; i++)
+                    {
+                        spectrumTexture2D.SetPixel(i, 0, Color.white);
+                    }
+                }
+
+                Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));
+                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, color);
+                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, color);
             }
             else if (note == selectedNote)
             {
@@ -583,11 +577,11 @@ public class SoundAnalyzer : MonoBehaviour
             }
             else
             {
-                if (Time.frameCount % 2 == 0)
+                if (Time.frameCount % 10 == 0 || Time.frameCount % 10 == 1)
                 {
                     // And dotted blue for reference lines
-                    spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.blue);
-                    spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.blue);
+                    spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.white);
+                    spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.white);
                 }
             }
         }

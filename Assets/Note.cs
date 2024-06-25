@@ -5,6 +5,13 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
+public enum NoteState
+{
+    notTriggered,
+    rising,
+    falling,
+}
+
 [Serializable]
 public class Note
 {
@@ -15,22 +22,21 @@ public class Note
     public float thresholdValue;
 
     // All the values that are NonSerialized will be resetted after loading
-    [field: NonSerialized] public bool triggered { get; set; }
-    [field: NonSerialized] public int numberOfValuesToAverage { get; set; }
-    [field: NonSerialized] public int minRetriggerTimeoutFrames { get; set; }
+
+    [field: NonSerialized] public NoteState noteState { get; private set; }
+    [field: NonSerialized] public int framesSinceTriggered { get; set; }
     [field: NonSerialized] public float minRetriggerLevel { get; set; }
-
-    [field: NonSerialized] private float maxValue { get; set; }
-    [field: NonSerialized] private float oldValue { get; set; }
-    [field: NonSerialized] private Queue<float> values { get; set; }
-
     [field: NonSerialized] public int lastTriggeredFrame { get; set; }
 
-    [field: NonSerialized] private GameObject thresholdSliderPanel { get; set; }
-    [field: NonSerialized] private GameObject thresholdSliderParent { get; set; }
-    [field: NonSerialized] private Slider thresholdSlider { get; set; }
-    [field: NonSerialized] private Image thresholdBackgroundPanelImage { get; set; }
-    [field: NonSerialized] private SoundAnalyzer soundAnalyzer { get; set; }
+    float minValueSinceTriggered;
+    float maxValueSinceTriggered;
+
+    float thresholdSliderMaxValue;
+    GameObject thresholdSliderPanel { get; set; }
+    GameObject thresholdSliderParent { get; set; }
+    Slider thresholdSlider { get; set; }
+    Image thresholdBackgroundPanelImage { get; set; }
+    SoundAnalyzer soundAnalyzer { get; set; }
 
     public Note(string caption, int lowerBound, int upperBound, float thresholdValue)
     {
@@ -40,14 +46,12 @@ public class Note
         this.thresholdValue = thresholdValue;
     }
 
-    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, int minFramesBeforRegister, int minRetriggerTimeoutFrames, float minRetriggerLevel)
+    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, float minRetriggerLevel)
     {
         // This function is executed after loading or creating of notes
         this.thresholdSliderPanel = thresholdSliderPanel;
         this.thresholdSliderParent = thresholdSliderParent;
         this.soundAnalyzer = soundAnalyzer;
-        this.numberOfValuesToAverage = minFramesBeforRegister;
-        this.minRetriggerTimeoutFrames = minRetriggerTimeoutFrames;
         this.minRetriggerLevel = minRetriggerLevel;
 
         // The thresholdSliderParent has just been created, therefore set a usefull name
@@ -61,16 +65,17 @@ public class Note
         thresholdBackgroundPanelImage = thresholdSliderParent.transform.GetChild(0).transform.GetComponent<Image>();
 
         // We need set the maxValue to thresholdValue * 1.5f that there is some way to increase the thresholdValue with the slider
-        this.maxValue = thresholdValue * 1.5f;
+        this.thresholdSliderMaxValue = thresholdValue * 1.5f;
         thresholdSlider.maxValue = thresholdValue * 1.5f;
         thresholdSlider.value = thresholdValue;
 
         // Also we need to attach a listener to the notes slider
-        thresholdSlider.onValueChanged.AddListener(delegate {
+        thresholdSlider.onValueChanged.AddListener(delegate
+        {
             TresholdSliderValueChanged(thresholdSlider);
         });
 
-        values = new Queue<float>();
+        noteState = NoteState.notTriggered;
     }
 
     public void TresholdSliderValueChanged(Slider thresholdSlider)
@@ -121,58 +126,82 @@ public class Note
         SetThresholdSliderParentPosition();
     }
 
+    public void IncFrameCounter()
+    {
+        if (noteState == NoteState.notTriggered)
+        {
+            return;
+        }
+
+        framesSinceTriggered++;
+    }
+
     public void SetValue(float value)
     {
-        // Put the new value in the values queue
-        values.Enqueue(value);
-
-        // Make sure there are at max as many values in the queue as we need
-        while (values.Count > numberOfValuesToAverage)
-            values.Dequeue();
-
-        // Calculate the rolling average
-        float averageValue = values.Sum() / values.Count;
-
         // Sets the maximum sound level for the note 
-        if (value > maxValue)
+        if (value > thresholdSliderMaxValue)
         {
-            maxValue = value;
+            thresholdSliderMaxValue = value;
             thresholdSlider.maxValue = value;
         }
 
         // Set the threshold slider background
-        thresholdBackgroundPanelImage.fillAmount = 1 / maxValue * value;
+        thresholdBackgroundPanelImage.fillAmount = 1 / thresholdSliderMaxValue * value;
 
-        // Check if enough time has elapsed since this note has been triggered last time
-        if (Time.frameCount > lastTriggeredFrame + minRetriggerTimeoutFrames)
+        if (noteState == NoteState.notTriggered && value > thresholdValue)
         {
-            if (triggered)
-            {
-                if (averageValue < thresholdValue)
-                {
-                    // If we drop below the trasholdvalue, the note will be set to not triggered
-                    triggered = false;
-                }
-                else if (value > oldValue * minRetriggerLevel)
-                {
-                    // If the note is already in a triggered state, we need to check if the current level is higher than the previous level
-                    lastTriggeredFrame = Time.frameCount;
-                    soundAnalyzer.UpdateUIForTriggeredNote(caption);
-                }
-            }
-            else
-            {
-                // If the note is not in the triggered state, we check if the current value has passed the threshold value
-                if (averageValue > thresholdValue)
-                {
-                    triggered = true;
-                    lastTriggeredFrame = Time.frameCount;
-                    soundAnalyzer.UpdateUIForTriggeredNote(caption);
-                }
-            }
+            Debug.Log("Trigger");
+
+            noteState = NoteState.rising;
+            maxValueSinceTriggered = value;
+            framesSinceTriggered = 0;
+            lastTriggeredFrame = Time.frameCount;
+            soundAnalyzer.UpdateUIForTriggeredNote(caption);
+
+            return;
         }
 
-        oldValue = value;
+        if (noteState != NoteState.notTriggered && value < (thresholdValue * 0.8f))
+        {
+            noteState = NoteState.notTriggered;
+            framesSinceTriggered = 0;
+
+            return;
+        }
+
+        if (noteState == NoteState.rising && value > maxValueSinceTriggered)
+        {
+            maxValueSinceTriggered = value;
+            return;
+        }
+
+        if (noteState == NoteState.rising && value < maxValueSinceTriggered)
+        {
+            noteState = NoteState.falling;
+            minValueSinceTriggered = value;
+
+            return;
+        }
+
+        if (noteState == NoteState.falling && value < minValueSinceTriggered)
+        {
+            minValueSinceTriggered = value;
+
+            return;
+        }
+
+        if (noteState == NoteState.falling && value > minValueSinceTriggered * minRetriggerLevel)
+        {
+            Debug.Log("Trigger");
+
+            noteState = NoteState.rising;
+            maxValueSinceTriggered = value;
+            framesSinceTriggered = 0;
+            lastTriggeredFrame = Time.frameCount;
+            soundAnalyzer.UpdateUIForTriggeredNote(caption);
+
+            return;
+        }
     }
 
     public int GetLowerBound() { return lowerBound; }
