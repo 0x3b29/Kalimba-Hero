@@ -136,7 +136,7 @@ public class Note
         framesSinceTriggered++;
     }
 
-    public void SetValue(float value)
+    public void SetValue(float value, bool wasPeakInsideBounds)
     {
         // Sets the maximum sound level for the note 
         if (value > thresholdSliderMaxValue)
@@ -148,7 +148,7 @@ public class Note
         // Set the threshold slider background
         thresholdBackgroundPanelImage.fillAmount = 1 / thresholdSliderMaxValue * value;
 
-        if (noteState == NoteState.notTriggered && value > thresholdValue)
+        if (noteState == NoteState.notTriggered && value > thresholdValue && wasPeakInsideBounds)
         {
             Debug.Log("Trigger");
 
@@ -190,7 +190,7 @@ public class Note
             return;
         }
 
-        if (noteState == NoteState.falling && value > minValueSinceTriggered * minRetriggerLevel)
+        if (noteState == NoteState.falling && value > minValueSinceTriggered * minRetriggerLevel && wasPeakInsideBounds)
         {
             Debug.Log("Trigger");
 

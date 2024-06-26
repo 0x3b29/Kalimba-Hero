@@ -948,9 +948,9 @@ RectTransform:
   m_Father: {fileID: 1192876911}
   m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 106, y: -219.5282}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 106, y: 145.69995}
   m_SizeDelta: {x: 160, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &34166772
@@ -2320,9 +2320,9 @@ RectTransform:
   m_Father: {fileID: 1192876911}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
-  m_AnchorMin: {x: 0, y: 1}
-  m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 106, y: -184.02814}
+  m_AnchorMin: {x: 0, y: 0}
+  m_AnchorMax: {x: 0, y: 0}
+  m_AnchoredPosition: {x: 106, y: 181.2}
   m_SizeDelta: {x: 160, y: 45}
   m_Pivot: {x: 0.5, y: 0.5}
 --- !u!114 &302799826
@@ -4860,9 +4860,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bcc4e666a21f30946a227829f26b13b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  lowerPeakDetectionThreshold: 0.005
+  upperPeakDetectionThreshold: 0.0002
+  drawRawSpectrum: 1
+  targetFrameRate: 120
   audioHandler: {fileID: 2089616487}
-  targetFrameRate: 60
-  soundAverage: 0
   spectrumRawImage: {fileID: 978072849}
   inputDeviceDropdown: {fileID: 785239610}
   selectedNoteText: {fileID: 1327905518}

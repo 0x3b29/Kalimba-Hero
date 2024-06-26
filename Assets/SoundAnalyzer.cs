@@ -10,33 +10,19 @@ using System.Linq;
 
 public class SoundAnalyzer : MonoBehaviour
 {
-    [SerializeField]
-    AudioHandler audioHandler;
+    [SerializeField] float lowerPeakDetectionThreshold;
+    [SerializeField] float upperPeakDetectionThreshold;
+    [SerializeField] bool drawRawSpectrum;
+    [SerializeField] FilterMode filterMode;
 
     [SerializeField] int targetFrameRate;
     int oldTargetFrameRate;
 
-    [SerializeField] float soundAverage;
-
-    const int spectrumTextureWidth = 512;
-    const int spectrumTextureHeight = 400;
-    Texture2D spectrumTexture2D;
-
-    Note selectedNote;
-    Datasource datasource;
-
-    Vector2 screenResolution;
-    bool ignoreSliderEvent = false;
-
-    int timeWhenLastNoteTriggeredInMS;
-
+    [SerializeField] AudioHandler audioHandler;
 
     [SerializeField] RawImage spectrumRawImage;
-
     [SerializeField] TMP_Dropdown inputDeviceDropdown;
-
     [SerializeField] TMP_Text selectedNoteText;
-
     [SerializeField] TMP_Dropdown noteSelectorDropdown;
 
     [SerializeField] Slider upperBoundSlider;
@@ -54,12 +40,10 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button unselectButton;
     [SerializeField] Button previousButton;
 
-
     [SerializeField] TMP_InputField noteNameInput;
 
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
-
 
     [SerializeField] Slider retriggerLevelSlider;
     [SerializeField] TMP_Text retriggerLevelText;
@@ -68,6 +52,18 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button clearOutputButton;
 
     [SerializeField] Button closeButton;
+
+    const int spectrumTextureWidth = 512;
+    const int spectrumTextureHeight = 400;
+    Texture2D spectrumTexture2D;
+
+    Note selectedNote;
+    Datasource datasource;
+
+    Vector2 screenResolution;
+    bool ignoreSliderEvent = false;
+
+    int timeWhenLastNoteTriggeredInMS;
 
     void Awake()
     {
@@ -103,6 +99,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         // Create a new texture which we will use to draw the spectrum into
         spectrumTexture2D = new Texture2D(spectrumTextureWidth, spectrumTextureHeight);
+        spectrumTexture2D.filterMode = filterMode;
 
         // Initialize the new texture with black pixels
         for (int x = 0; x < spectrumTextureWidth; x++)
@@ -468,86 +465,94 @@ public class SoundAnalyzer : MonoBehaviour
         processAudio();
     }
 
+    public void ShiftTextureUpByOneLine(Color[] pixels)
+    {
+        for (int i = pixels.Length - 1; i >= spectrumTextureWidth; i--)
+        {
+            pixels[i] = pixels[i - spectrumTextureWidth];
+        }
+    }
+
+    public void ColorLastTextureLine(Color[] pixels, Color color)
+    {
+        for (int i = 0; i < spectrumTextureWidth; i++)
+        {
+            pixels[i] = color;
+        }
+    }
+
     void processAudio()
     {
         // Then shift the entire texture such that all the pixels are one entire row further down
         // This is done from back to front because otherwse the first row would be written to all rows
         Color[] pixels = spectrumTexture2D.GetPixels();
 
-        for (int i = pixels.Length - 1; i >= spectrumTextureWidth; i--)
-        {
-            pixels[i] = pixels[i - spectrumTextureWidth];
-        }
+        ShiftTextureUpByOneLine(pixels);
+        ColorLastTextureLine(pixels, Color.black);
 
         float[] spectrum = audioHandler.GetSpectrumData();
-
-        float soundLevel = 0;
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrum.Length; i++)
         {
-            soundLevel += spectrum[i];
-
             // But we only consider the lower part, which fits in our texture
             // TODO: this should be done more genericly, and not be bound to the texture size
-            if (i < spectrumTextureWidth)
+            if (i > spectrumTextureWidth)
             {
-                // First we colorize the current pixel with the color of the current spectrum value
-                pixels[i] = Helpers.MapValueToColor(spectrum[i]);
+                continue;
             }
+
+            if (!drawRawSpectrum)
+            {
+                continue;
+            }
+
+            // First we colorize the current pixel with the color of the current spectrum value
+            pixels[i] = Helpers.MapValueToColor(spectrum[i]);
         }
 
-        soundAverage = soundLevel / spectrum.Length * 100000;
-
         spectrumTexture2D.SetPixels(pixels);
+
+        List<int> peaks = audioHandler.DetectPeaks(spectrum, spectrumTextureWidth, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
 
         // Then we iterate over every note
         foreach (Note note in datasource.notes)
         {
+            if (Time.frameCount % 10 == 0 || Time.frameCount % 10 == 1)
+            {
+                // And dotted blue for reference lines
+                pixels[note.GetLowerBound()] = Color.white;
+                pixels[note.GetUpperBound()] = Color.white;
+            }
+
+            if (note == selectedNote)
+            {
+                // Green for selected
+                pixels[note.GetLowerBound()] = Color.green;
+                pixels[note.GetUpperBound()] = Color.green;
+            }
+
             note.IncFrameCounter();
 
             // For each note, we calculate the level of sound
             float accumulator = 0;
-            float max = -1;
-            int maxPosition = -1;
+
+            bool foundPeak = false;
+            for (int i = 0; i < peaks.Count; i++)
+            {
+                if (peaks[i] > note.lowerBound && peaks[i] < note.upperBound)
+                {
+                    foundPeak = true;
+                }
+            }
 
             // This is done by adding up all the spectum data from the notes lower to upper bound
             for (int i = note.GetLowerBound(); i <= note.GetUpperBound(); i++)
             {
                 accumulator += spectrum[i];
-
-                // Also we want to know the position of the highest sound level
-                if (spectrum[i] > max)
-                {
-                    max = spectrum[i];
-                    maxPosition = i;
-                }
             }
 
-            int peakPosition = maxPosition;
-            int direction;
-
-            if (spectrum[peakPosition + 1] > spectrum[peakPosition - 1])
-            {
-                direction = 1;
-            }
-            else
-            {
-                direction = -1;
-            }
-
-            if (note.thresholdValue > accumulator)
-            {
-                while (spectrum[peakPosition + direction] > spectrum[peakPosition])
-                {
-                    peakPosition += direction;
-                }
-            }
-
-            if (peakPosition < note.GetUpperBound() && peakPosition > note.GetLowerBound())
-            {
-                note.SetValue(accumulator);
-            }
+            note.SetValue(accumulator, foundPeak);
 
             // Then mark the spectrum of the note according to its state
             if (note.noteState != NoteState.notTriggered)
@@ -561,32 +566,23 @@ public class SoundAnalyzer : MonoBehaviour
 
                     for (int i = xMin; i < xMax; i++)
                     {
-                        spectrumTexture2D.SetPixel(i, 0, Color.white);
+                        pixels[i] = Color.white;
                     }
                 }
 
                 Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));
-                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, color);
-                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, color);
-            }
-            else if (note == selectedNote)
-            {
-                // Green for selected
-                spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.green);
-                spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.green);
-            }
-            else
-            {
-                if (Time.frameCount % 10 == 0 || Time.frameCount % 10 == 1)
-                {
-                    // And dotted blue for reference lines
-                    spectrumTexture2D.SetPixel(note.GetLowerBound(), 0, Color.white);
-                    spectrumTexture2D.SetPixel(note.GetUpperBound(), 0, Color.white);
-                }
+                pixels[note.GetLowerBound()] = color;
+                pixels[note.GetUpperBound()] = color;
             }
         }
 
+        foreach (int peak in peaks)
+        {
+            pixels[peak] = Color.white;
+        }
+
         // Finally we apply and update the texture
+        spectrumTexture2D.SetPixels(pixels);
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
     }

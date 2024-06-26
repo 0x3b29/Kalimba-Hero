@@ -3,6 +3,7 @@ using UnityEngine.Audio;
 using System.Collections;
 using System.Linq;
 using System;
+using System.Collections.Generic;
 
 public enum SpectrumSize
 {
@@ -118,9 +119,27 @@ public class AudioHandler : MonoBehaviour
 
     public float[] GetSpectrumData()
     {
-        // Now we get the most updated audio spectrum data
         audioSource.GetSpectrumData(spectrum, 0, fftWindow);
+        return spectrum; 
+    }
 
-        return spectrum;
+    public List<int> DetectPeaks(float[] spectrum, int detectionUpperLimit, float lowerPeakDetectionThreshold, float upperPeakDetectionThreshold)
+    {
+        List<int> peaks = new List<int>();
+        for (int i = 1; i < detectionUpperLimit - 1; i++)
+        {
+            float peakDetectionThreshold = Helpers.MapRange(i, 0, detectionUpperLimit, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
+
+            if (spectrum[i] < peakDetectionThreshold)
+            {
+                continue;
+            }
+
+            if (spectrum[i] > spectrum[i - 1] && spectrum[i] > spectrum[i + 1])
+            {
+                peaks.Add(i);
+            }
+        }
+        return peaks;
     }
 }
