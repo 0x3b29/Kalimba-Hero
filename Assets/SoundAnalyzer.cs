@@ -247,7 +247,7 @@ public class SoundAnalyzer : MonoBehaviour
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
-                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerMinimumLevel);
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerMinimumLevel, midiHandler);
             }
 
             UpdateDropdownOptions();
@@ -368,7 +368,7 @@ public class SoundAnalyzer : MonoBehaviour
         Note newNote = new Note(noteNameInput.text, midiValue, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value);
+        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value, midiHandler);
 
         // Add note to notes list, select new note and update UI
         datasource.notes.Add(newNote);
@@ -456,6 +456,10 @@ public class SoundAnalyzer : MonoBehaviour
         selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
     }
 
+    // Define a timer and the interval for 24 updates per second
+    private float updateInterval = 1.0f / 24.0f;
+    private float timer = 0f;
+
     void Update()
     {
         // First we check if the screen size changed
@@ -479,6 +483,20 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         processAudio();
+
+        // Accumulate time passed since last frame
+        timer += Time.deltaTime;
+
+        // Check if the accumulated time exceeds or equals the update interval
+        if (timer >= updateInterval)
+        {
+            // Update the texture
+            spectrumTexture2D.SetPixels(spectrumTexturePixels);
+            spectrumTexture2D.Apply();
+
+            // Reset the timer, subtracting the update interval to handle any overflow
+            timer -= updateInterval;
+        }
     }
 
     public void ShiftTextureUpByOneLine(Color[] pixels)
@@ -497,6 +515,8 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
+
+
     void processAudio()
     {
         // Then shift the entire texture such that all the pixels are one entire row further down
@@ -506,7 +526,6 @@ public class SoundAnalyzer : MonoBehaviour
         ColorLastTextureLine(spectrumTexturePixels, Color.black);
         
         float[] spectrum = audioHandler.GetSpectrumData();
-        // float[] spectrum = values;
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrum.Length; i++)
@@ -526,8 +545,6 @@ public class SoundAnalyzer : MonoBehaviour
             // First we colorize the current pixel with the color of the current spectrum value
             spectrumTexturePixels[i] = Helpers.MapValueToColor(spectrum[i]);
         }
-
-       
 
         List<int> peaks = audioHandler.DetectPeaks(spectrum, spectrumTextureWidth, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
 
@@ -585,7 +602,7 @@ public class SoundAnalyzer : MonoBehaviour
                         spectrumTexturePixels[i] = Color.white;
                     }
 
-                    midiHandler.SendNoteOnEvent(note.midiValue, 127);
+                    
                 }
 
                 Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));
@@ -598,10 +615,6 @@ public class SoundAnalyzer : MonoBehaviour
         {
             spectrumTexturePixels[peak] = Color.white;
         }
-
-        // Finally we apply and update the texture
-        spectrumTexture2D.SetPixels(spectrumTexturePixels);
-        spectrumTexture2D.Apply();
     }
 
     public void UpdateUIForTriggeredNote(string note)

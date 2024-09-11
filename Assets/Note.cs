@@ -42,6 +42,7 @@ public class Note
     Slider thresholdSlider { get; set; }
     Image thresholdBackgroundPanelImage { get; set; }
     SoundAnalyzer soundAnalyzer { get; set; }
+    MidiHandler midiHandler;
 
     public Note(string caption, byte midiValue, int lowerBound, int upperBound, float thresholdValue)
     {
@@ -52,7 +53,7 @@ public class Note
         this.midiValue = midiValue;
     }
 
-    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, float minRetriggerLevel)
+    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, float minRetriggerLevel, MidiHandler midiHandler)
     {
         // This function is executed after loading or creating of notes
         this.thresholdSliderPanel = thresholdSliderPanel;
@@ -82,6 +83,8 @@ public class Note
         });
 
         noteState = NoteState.notTriggered;
+
+        this.midiHandler = midiHandler;
     }
 
     public void TresholdSliderValueChanged(Slider thresholdSlider)
@@ -156,14 +159,13 @@ public class Note
 
         if (noteState == NoteState.notTriggered && value > thresholdValue && wasPeakInsideBounds)
         {
-            Debug.Log("Trigger");
-
             noteState = NoteState.rising;
             maxValueSinceTriggered = value;
             framesSinceTriggered = 0;
             lastTriggeredFrame = Time.frameCount;
-            soundAnalyzer.UpdateUIForTriggeredNote(caption);
 
+            midiHandler.SendNoteOnEvent(midiValue, 127);
+            soundAnalyzer.UpdateUIForTriggeredNote(caption);
             return;
         }
 
@@ -198,12 +200,13 @@ public class Note
 
         if (noteState == NoteState.falling && value > minValueSinceTriggered * minRetriggerLevel && wasPeakInsideBounds)
         {
-            Debug.Log("Trigger");
 
             noteState = NoteState.rising;
             maxValueSinceTriggered = value;
             framesSinceTriggered = 0;
             lastTriggeredFrame = Time.frameCount;
+
+            midiHandler.SendNoteOnEvent(midiValue, 127);
             soundAnalyzer.UpdateUIForTriggeredNote(caption);
 
             return;
