@@ -5,6 +5,10 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
+
+
+
+
 public enum NoteState
 {
     notTriggered,
@@ -20,6 +24,7 @@ public class Note
     public int lowerBound;
     public int upperBound;
     public float thresholdValue;
+    public byte midiValue;
 
     // All the values that are NonSerialized will be resetted after loading
 
@@ -38,12 +43,13 @@ public class Note
     Image thresholdBackgroundPanelImage { get; set; }
     SoundAnalyzer soundAnalyzer { get; set; }
 
-    public Note(string caption, int lowerBound, int upperBound, float thresholdValue)
+    public Note(string caption, byte midiValue, int lowerBound, int upperBound, float thresholdValue)
     {
         this.caption = caption;
         this.lowerBound = lowerBound;
         this.upperBound = upperBound;
         this.thresholdValue = thresholdValue;
+        this.midiValue = midiValue;
     }
 
     public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, float minRetriggerLevel)

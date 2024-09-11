@@ -19,6 +19,7 @@ public class SoundAnalyzer : MonoBehaviour
     int oldTargetFrameRate;
 
     [SerializeField] AudioHandler audioHandler;
+    [SerializeField] MidiHandler midiHandler;
 
     [SerializeField] RawImage spectrumRawImage;
     [SerializeField] TMP_Dropdown inputDeviceDropdown;
@@ -32,7 +33,7 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button loadButton;
     [SerializeField] Button addButton;
     [SerializeField] Button clearButton;
-    [SerializeField] Button renameButton;
+    [SerializeField] Button updateButton;
 
     [SerializeField] Button removeButton;
 
@@ -41,6 +42,7 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button previousButton;
 
     [SerializeField] TMP_InputField noteNameInput;
+    [SerializeField] TMP_InputField noteMidiInput;
 
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
@@ -56,6 +58,7 @@ public class SoundAnalyzer : MonoBehaviour
     const int spectrumTextureWidth = 512;
     const int spectrumTextureHeight = 400;
     Texture2D spectrumTexture2D;
+    Color[] spectrumTexturePixels;
 
     Note selectedNote;
     Datasource datasource;
@@ -113,6 +116,7 @@ public class SoundAnalyzer : MonoBehaviour
         // Apply and set texture to image component 
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
+        spectrumTexturePixels = spectrumTexture2D.GetPixels();
 
         // Create all the delegate functions for the UI compnents
         inputDeviceDropdown.onValueChanged.AddListener(delegate
@@ -139,8 +143,8 @@ public class SoundAnalyzer : MonoBehaviour
         addButton.onClick.AddListener(delegate
         { AddButtonClick(); });
 
-        renameButton.onClick.AddListener(delegate
-        { RenameButtonClick(); });
+        updateButton.onClick.AddListener(delegate
+        { UpdateButtonClick(); });
 
         nextButton.onClick.AddListener(delegate
         { NextButtonClick(); });
@@ -265,7 +269,9 @@ public class SoundAnalyzer : MonoBehaviour
     void SelectNote(Note note)
     {
         selectedNote = note;
-        selectedNoteText.text = note.caption;
+        selectedNoteText.text = note.caption + "(" + note.midiValue + ")";
+        noteNameInput.text = note.caption;
+        noteMidiInput.text = note.midiValue.ToString();
 
         // Try to find the correct entry in the dropdown
         noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == note);
@@ -354,8 +360,12 @@ public class SoundAnalyzer : MonoBehaviour
 
     void AddButtonClick()
     {
+        byte midiValue = 0;
+        byte.TryParse(noteMidiInput.text, out midiValue);
+        midiValue = (byte)Mathf.Min(127, (int)midiValue);
+
         // Create new note
-        Note newNote = new Note(noteNameInput.text, 0, 0, 0);
+        Note newNote = new Note(noteNameInput.text, midiValue, 0, 0, 0);
 
         // Initialize new note
         newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value);
@@ -366,11 +376,17 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(newNote);
     }
 
-    void RenameButtonClick()
+    void UpdateButtonClick()
     {
         if (selectedNote != null)
         {
+            byte midiValue = 0;
+            byte.TryParse(noteMidiInput.text, out midiValue);
+            midiValue = (byte)Mathf.Min(127, (int)midiValue);
+
             selectedNote.caption = noteNameInput.text;
+            selectedNote.midiValue = midiValue;
+
             UpdateDropdownOptions();
             selectedNoteText.text = selectedNote.caption;
         }
@@ -485,12 +501,12 @@ public class SoundAnalyzer : MonoBehaviour
     {
         // Then shift the entire texture such that all the pixels are one entire row further down
         // This is done from back to front because otherwse the first row would be written to all rows
-        Color[] pixels = spectrumTexture2D.GetPixels();
-
-        ShiftTextureUpByOneLine(pixels);
-        ColorLastTextureLine(pixels, Color.black);
-
+        
+        ShiftTextureUpByOneLine(spectrumTexturePixels);
+        ColorLastTextureLine(spectrumTexturePixels, Color.black);
+        
         float[] spectrum = audioHandler.GetSpectrumData();
+        // float[] spectrum = values;
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrum.Length; i++)
@@ -508,10 +524,10 @@ public class SoundAnalyzer : MonoBehaviour
             }
 
             // First we colorize the current pixel with the color of the current spectrum value
-            pixels[i] = Helpers.MapValueToColor(spectrum[i]);
+            spectrumTexturePixels[i] = Helpers.MapValueToColor(spectrum[i]);
         }
 
-        spectrumTexture2D.SetPixels(pixels);
+       
 
         List<int> peaks = audioHandler.DetectPeaks(spectrum, spectrumTextureWidth, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
 
@@ -521,15 +537,15 @@ public class SoundAnalyzer : MonoBehaviour
             if (Time.frameCount % 10 == 0 || Time.frameCount % 10 == 1)
             {
                 // And dotted blue for reference lines
-                pixels[note.GetLowerBound()] = Color.white;
-                pixels[note.GetUpperBound()] = Color.white;
+                spectrumTexturePixels[note.GetLowerBound()] = Color.white;
+                spectrumTexturePixels[note.GetUpperBound()] = Color.white;
             }
 
             if (note == selectedNote)
             {
                 // Green for selected
-                pixels[note.GetLowerBound()] = Color.green;
-                pixels[note.GetUpperBound()] = Color.green;
+                spectrumTexturePixels[note.GetLowerBound()] = Color.green;
+                spectrumTexturePixels[note.GetUpperBound()] = Color.green;
             }
 
             note.IncFrameCounter();
@@ -566,25 +582,26 @@ public class SoundAnalyzer : MonoBehaviour
 
                     for (int i = xMin; i < xMax; i++)
                     {
-                        pixels[i] = Color.white;
+                        spectrumTexturePixels[i] = Color.white;
                     }
+
+                    midiHandler.SendNoteOnEvent(note.midiValue, 127);
                 }
 
                 Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));
-                pixels[note.GetLowerBound()] = color;
-                pixels[note.GetUpperBound()] = color;
+                spectrumTexturePixels[note.GetLowerBound()] = color;
+                spectrumTexturePixels[note.GetUpperBound()] = color;
             }
         }
 
         foreach (int peak in peaks)
         {
-            pixels[peak] = Color.white;
+            spectrumTexturePixels[peak] = Color.white;
         }
 
         // Finally we apply and update the texture
-        spectrumTexture2D.SetPixels(pixels);
+        spectrumTexture2D.SetPixels(spectrumTexturePixels);
         spectrumTexture2D.Apply();
-        spectrumRawImage.texture = spectrumTexture2D;
     }
 
     public void UpdateUIForTriggeredNote(string note)

@@ -18,7 +18,11 @@ public enum SpectrumSize
 
 public class AudioHandler : MonoBehaviour
 {
+    [SerializeField] AudioClip m_Clip;
     [SerializeField] bool forceResyncDuringNextUpdate = false;
+
+    [SerializeField] bool loadAudioClip = false;
+
     [SerializeField] float currentPlaybackOffset;
     [SerializeField] float maxPlaybackOffset = 0.25f;
 
@@ -96,6 +100,14 @@ public class AudioHandler : MonoBehaviour
 
     void Update()
     {
+        if (loadAudioClip)
+        {
+            loadAudioClip = false;
+            audioSource.clip = m_Clip;
+            audioSource.Play(0);
+            audioSource.loop=false;
+        }
+
         float audioSourceTime = audioSource.time;
         float microphonePosition = Microphone.GetPosition(currentInputDeviceName) / (float)currentInputDeviceFrequency;
 
@@ -126,6 +138,7 @@ public class AudioHandler : MonoBehaviour
     public List<int> DetectPeaks(float[] spectrum, int detectionUpperLimit, float lowerPeakDetectionThreshold, float upperPeakDetectionThreshold)
     {
         List<int> peaks = new List<int>();
+
         for (int i = 1; i < detectionUpperLimit - 1; i++)
         {
             float peakDetectionThreshold = Helpers.MapRange(i, 0, detectionUpperLimit, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
@@ -140,6 +153,7 @@ public class AudioHandler : MonoBehaviour
                 peaks.Add(i);
             }
         }
+
         return peaks;
     }
 }
