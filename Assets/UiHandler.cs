@@ -18,12 +18,20 @@ public class UiHandler : MonoBehaviour
     [SerializeField] Button unselectButton;
     [SerializeField] Button previousButton;
 
+    [SerializeField] Button addButton;
+    [SerializeField] Button updateButton;
+
+    [SerializeField] TMP_InputField noteNameInput;
+    [SerializeField] TMP_InputField noteMidiInput;
+
     public Action<string> selectedAudioInputDeviceChanged;
     public Action<string> selectedNoteChanged;
 
     public Action selectNextNote;
     public Action selectPreviousNote;
     public Action unselectNote;
+    public Action<string, byte> addNewNote;
+    public Action<string, byte> updateCurrentNote;
 
     // Start is called before the first frame update
     void Awake()
@@ -35,11 +43,30 @@ public class UiHandler : MonoBehaviour
         previousButton.onClick.AddListener(delegate { selectPreviousNote?.Invoke(); });
         unselectButton.onClick.AddListener(delegate { unselectNote?.Invoke(); });
 
+        addButton.onClick.AddListener(OnAddButtonClick);
+        updateButton.onClick.AddListener(OnUpdateButtonClick);
+
         soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
         soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
         soundAnalyzer.notesUpdated += OnNotesUpdated;
         soundAnalyzer.noteSelected += OnNoteSelected;
         soundAnalyzer.noteUpdated += OnNoteUpdated;
+    }
+
+    void OnAddButtonClick()
+    {
+        byte midiValue = 0;
+        byte.TryParse(noteMidiInput.text, out midiValue);
+
+        addNewNote?.Invoke(noteNameInput.text, midiValue);
+    }
+
+    void OnUpdateButtonClick()
+    {
+        byte midiValue = 0;
+        byte.TryParse(noteMidiInput.text, out midiValue);
+
+        updateCurrentNote?.Invoke(noteNameInput.text, midiValue);
     }
 
     void OnNotesUpdated(List<Note> newNotes)
@@ -59,9 +86,14 @@ public class UiHandler : MonoBehaviour
         if (note == null)
         {
             selectedNoteText.text = "/";
+            noteNameInput.text = "";
+            noteMidiInput.text = "";
             return;
         }
 
+        noteNameInput.text = note.caption;
+        noteMidiInput.text = note.midiValue.ToString();
+        
         UpdateNoteCaption(note);
     }
 

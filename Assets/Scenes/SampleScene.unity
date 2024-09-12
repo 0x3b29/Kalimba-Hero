@@ -265,7 +265,7 @@ RectTransform:
   m_Children:
   - {fileID: 216936917}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 3
+  m_RootOrder: 5
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
@@ -2543,7 +2543,7 @@ RectTransform:
   m_Children:
   - {fileID: 852807720}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 0
+  m_RootOrder: 2
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
@@ -3510,6 +3510,10 @@ MonoBehaviour:
   nextButton: {fileID: 338269746}
   unselectButton: {fileID: 868798726}
   previousButton: {fileID: 84533770}
+  addButton: {fileID: 233757177}
+  updateButton: {fileID: 1945013999}
+  noteNameInput: {fileID: 741410001}
+  noteMidiInput: {fileID: 1026555859}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -4223,7 +4227,7 @@ RectTransform:
   m_Children:
   - {fileID: 863671583}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 4
+  m_RootOrder: 0
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
@@ -6111,12 +6115,8 @@ MonoBehaviour:
   lowerBoundSlider: {fileID: 1147594968}
   saveButton: {fileID: 989824787}
   loadButton: {fileID: 688116815}
-  addButton: {fileID: 233757177}
   clearButton: {fileID: 6318388}
-  updateButton: {fileID: 1945013999}
   removeButton: {fileID: 1618040119}
-  noteNameInput: {fileID: 741410001}
-  noteMidiInput: {fileID: 1026555859}
   thresholdSliderPanel: {fileID: 594624505}
   thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
     type: 3}
@@ -6566,7 +6566,7 @@ RectTransform:
   m_Children:
   - {fileID: 1983137225}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 5
+  m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
@@ -8866,7 +8866,7 @@ RectTransform:
   m_Children:
   - {fileID: 1375875381}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 2
+  m_RootOrder: 4
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
@@ -9312,12 +9312,12 @@ RectTransform:
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
+  - {fileID: 741410000}
+  - {fileID: 1026555858}
   - {fileID: 233757176}
   - {fileID: 1945013998}
   - {fileID: 1618040118}
   - {fileID: 6318387}
-  - {fileID: 741410000}
-  - {fileID: 1026555858}
   m_Father: {fileID: 1114272595}
   m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
@@ -10669,7 +10669,7 @@ RectTransform:
   m_Children:
   - {fileID: 1015223059}
   m_Father: {fileID: 1715736432}
-  m_RootOrder: 1
+  m_RootOrder: 3
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}

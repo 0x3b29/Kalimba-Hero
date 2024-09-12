@@ -24,21 +24,16 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] MidiHandler midiHandler;
 
     [SerializeField] RawImage spectrumRawImage;
-    
 
     [SerializeField] Slider upperBoundSlider;
     [SerializeField] Slider lowerBoundSlider;
 
     [SerializeField] Button saveButton;
     [SerializeField] Button loadButton;
-    [SerializeField] Button addButton;
+
     [SerializeField] Button clearButton;
-    [SerializeField] Button updateButton;
 
     [SerializeField] Button removeButton;
-
-    [SerializeField] TMP_InputField noteNameInput;
-    [SerializeField] TMP_InputField noteMidiInput;
 
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
@@ -80,6 +75,9 @@ public class SoundAnalyzer : MonoBehaviour
         uiHandler.selectNextNote += OnSelectNextNote;
         uiHandler.selectPreviousNote += OnSelectPreviousNote;
         uiHandler.unselectNote += OnUnselectNote;
+
+        uiHandler.updateCurrentNote += OnUpdateNote;
+        uiHandler.addNewNote += OnAddNewNote;
     }
 
     void Start()
@@ -140,14 +138,8 @@ public class SoundAnalyzer : MonoBehaviour
         clearButton.onClick.AddListener(delegate
         { ClearButtonClick(); });
 
-        addButton.onClick.AddListener(delegate
-        { AddButtonClick(); });
-
         removeButton.onClick.AddListener(delegate
         { RemoveButtonClick(); });
-
-        updateButton.onClick.AddListener(delegate
-        { UpdateButtonClick(); });
 
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
@@ -237,8 +229,7 @@ public class SoundAnalyzer : MonoBehaviour
         selectedNote = note;
         
         noteSelected?.Invoke(note);
-        noteNameInput.text = note.caption;
-        noteMidiInput.text = note.midiValue.ToString();
+       
 
 
         // While initially setting the bounds, we need to prevent the slider update event to be triggered 
@@ -323,14 +314,13 @@ public class SoundAnalyzer : MonoBehaviour
         UnselectNote();
     }
 
-    void AddButtonClick()
+    void OnAddNewNote(string name, byte midiValue)
     {
-        byte midiValue = 0;
-        byte.TryParse(noteMidiInput.text, out midiValue);
+
         midiValue = (byte)Mathf.Min(127, (int)midiValue);
 
         // Create new note
-        Note newNote = new Note(noteNameInput.text, midiValue, 0, 0, 0);
+        Note newNote = new Note(name, midiValue, 0, 0, 0);
 
         // Initialize new note
         newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value, midiHandler);
@@ -341,15 +331,14 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(newNote);
     }
 
-    void UpdateButtonClick()
+    void OnUpdateNote(string name, byte midiValue)
     {
         if (selectedNote != null)
         {
-            byte midiValue = 0;
-            byte.TryParse(noteMidiInput.text, out midiValue);
+
             midiValue = (byte)Mathf.Min(127, (int)midiValue);
 
-            selectedNote.caption = noteNameInput.text;
+            selectedNote.caption = name;
             selectedNote.midiValue = midiValue;
 
             noteUpdated?.Invoke(selectedNote);
