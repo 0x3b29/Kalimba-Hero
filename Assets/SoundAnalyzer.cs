@@ -24,9 +24,6 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] MidiHandler midiHandler;
     [SerializeField] RawImage spectrumRawImage;
 
-    [SerializeField] Slider upperBoundSlider;
-    [SerializeField] Slider lowerBoundSlider;
-
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
 
@@ -65,6 +62,8 @@ public class SoundAnalyzer : MonoBehaviour
 
         uiHandler.screenResolutionChanged += OnScreenResolutionChnaged;
         uiHandler.retriggerLevelChanged += OnRetriggerLevelChanged;
+
+        uiHandler.bandValueChanged += BandValueChanged;
     }
 
     void Start()
@@ -108,13 +107,6 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
         spectrumTexturePixels = spectrumTexture2D.GetPixels();
-
-        // Create all the delegate functions for the UI compnents
-        upperBoundSlider.onValueChanged.AddListener(delegate
-        { UpperBoundSliderValueChanged(upperBoundSlider); });
-
-        lowerBoundSlider.onValueChanged.AddListener(delegate
-        { LowerBoundSliderValueChanged(lowerBoundSlider); });
 
 
     }
@@ -182,10 +174,6 @@ public class SoundAnalyzer : MonoBehaviour
     {
         selectedNote = null;
         noteSelected?.Invoke(null);
-
-        // If no note is selected, there is no need for the bounds sliders to be visible
-        lowerBoundSlider.gameObject.SetActive(false);
-        upperBoundSlider.gameObject.SetActive(false);
     }
 
     void OnSelectedNoteChanged(string selectedNoteName)
@@ -197,19 +185,7 @@ public class SoundAnalyzer : MonoBehaviour
     void SelectNote(Note note)
     {
         selectedNote = note;
-        
         noteSelected?.Invoke(note);
-       
-        // While initially setting the bounds, we need to prevent the slider update event to be triggered 
-        // E.g. after setting the lowerBoundSlider.value, the event already fires and uses an old upperBoundSlider.value
-        ignoreSliderEvent = true;
-        lowerBoundSlider.value = note.GetLowerBound();
-        upperBoundSlider.value = note.GetUpperBound();
-        ignoreSliderEvent = false;
-
-        // Make sure the sliders are visible again (Only important if no note was previously selected)
-        lowerBoundSlider.gameObject.SetActive(true);
-        upperBoundSlider.gameObject.SetActive(true);
     }
 
     void OnClearNotes()
@@ -329,30 +305,13 @@ public class SoundAnalyzer : MonoBehaviour
         notesUpdated?.Invoke(datasource.notes);
     }
 
-    void UpperBoundSliderValueChanged(Slider upperBoundSlider)
+    void BandValueChanged(float lowerBound, float upperBound)
     {
         if (selectedNote == null || ignoreSliderEvent == true)
             return;
 
-        // We want to make sure that the upperBoundSlider.value is at least lowerBoundSlider.value
-        if (upperBoundSlider.value < lowerBoundSlider.value)
-            lowerBoundSlider.value = upperBoundSlider.value;
-
         // Set bounds to note will update threshold position 
-        selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
-    }
-
-    void LowerBoundSliderValueChanged(Slider lowerBoundSlider)
-    {
-        if (selectedNote == null || ignoreSliderEvent == true)
-            return;
-
-        // We want to make sure that the lowerBoundSlider.value is at most upperBoundSlider.value
-        if (lowerBoundSlider.value > upperBoundSlider.value)
-            upperBoundSlider.value = lowerBoundSlider.value;
-
-        // Set bounds to note will update threshold position 
-        selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBoundSlider.value), Mathf.RoundToInt(upperBoundSlider.value));
+        selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBound), Mathf.RoundToInt(upperBound));
     }
 
     // Define a timer and the interval for 24 updates per second

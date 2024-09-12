@@ -38,6 +38,9 @@ public class UiHandler : MonoBehaviour
 
     [SerializeField] Button closeButton;
 
+    [SerializeField] Slider upperBoundSlider;
+    [SerializeField] Slider lowerBoundSlider;
+
     public Action<string> selectedAudioInputDeviceChanged;
     public Action<string> selectedNoteChanged;
 
@@ -55,6 +58,8 @@ public class UiHandler : MonoBehaviour
     Vector2 screenResolution;
 
     public Action<float> retriggerLevelChanged;
+
+    public Action<float, float> bandValueChanged;
 
     int timeWhenLastNoteTriggeredInMS;
 
@@ -84,6 +89,9 @@ public class UiHandler : MonoBehaviour
 
         closeButton.onClick.AddListener(delegate { Application.Quit(); });
 
+        upperBoundSlider.onValueChanged.AddListener(OnUpperBoundSliderValueChanged);
+        lowerBoundSlider.onValueChanged.AddListener(OnLowerBoundSliderValueChanged);
+
         soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
         soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
         soundAnalyzer.notesUpdated += OnNotesUpdated;
@@ -104,10 +112,32 @@ public class UiHandler : MonoBehaviour
         }
     }
 
+    void OnUpperBoundSliderValueChanged(float newUpperBoundValue)
+    {
+        // We want to make sure that the upperBoundSlider.value is at least lowerBoundSlider.value
+        if (newUpperBoundValue < lowerBoundSlider.value)
+        {
+            lowerBoundSlider.value = newUpperBoundValue;
+        }
+
+        bandValueChanged?.Invoke(lowerBoundSlider.value, newUpperBoundValue);
+    }
+
+    void OnLowerBoundSliderValueChanged(float newLowerBoundValue)
+    {
+        // We want to make sure that the lowerBoundSlider.value is at most upperBoundSlider.value
+        if (newLowerBoundValue > upperBoundSlider.value)
+        {
+            upperBoundSlider.value = newLowerBoundValue;
+        }
+
+        bandValueChanged?.Invoke(newLowerBoundValue, upperBoundSlider.value);
+    }
+
     void OnRetriggerLevelSliderValueChanged(float newRetriggerLevel)
     {
         retriggerLevelChanged?.Invoke(newRetriggerLevel);
-        retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(newRetriggerLevel* 100) / 100f);
+        retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(newRetriggerLevel * 100) / 100f);
     }
 
     void OnAddButtonClick()
@@ -145,12 +175,24 @@ public class UiHandler : MonoBehaviour
             selectedNoteText.text = "/";
             noteNameInput.text = "";
             noteMidiInput.text = "";
+
+            // If no note is selected, there is no need for the bounds sliders to be visible
+            lowerBoundSlider.gameObject.SetActive(false);
+            upperBoundSlider.gameObject.SetActive(false);
+
             return;
         }
 
         noteNameInput.text = note.caption;
         noteMidiInput.text = note.midiValue.ToString();
-        
+
+        // If a note is selected, we want the bounds sliders to be visible
+        lowerBoundSlider.gameObject.SetActive(true);
+        upperBoundSlider.gameObject.SetActive(true);
+
+        lowerBoundSlider.value = note.GetLowerBound();
+        upperBoundSlider.value = note.GetUpperBound();
+
         UpdateNoteCaption(note);
     }
 

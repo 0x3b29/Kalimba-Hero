@@ -3523,6 +3523,8 @@ MonoBehaviour:
   outputInputField: {fileID: 210566733}
   clearOutputButton: {fileID: 1865057692}
   closeButton: {fileID: 944979581}
+  upperBoundSlider: {fileID: 837797778}
+  lowerBoundSlider: {fileID: 1147594968}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -6120,8 +6122,6 @@ MonoBehaviour:
   audioHandler: {fileID: 2089616487}
   midiHandler: {fileID: 58196259}
   spectrumRawImage: {fileID: 978072849}
-  upperBoundSlider: {fileID: 837797778}
-  lowerBoundSlider: {fileID: 1147594968}
   thresholdSliderPanel: {fileID: 594624505}
   thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
     type: 3}
