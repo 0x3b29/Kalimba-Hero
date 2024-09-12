@@ -33,9 +33,15 @@ public class UiHandler : MonoBehaviour
     public Action<string, byte> addNewNote;
     public Action<string, byte> updateCurrentNote;
 
+    public Action screenResolutionChanged;
+    Vector2 screenResolution;
+
     // Start is called before the first frame update
     void Awake()
     {
+        // We initially save the screen resolution to be later able to reacto to resize events
+        screenResolution = new Vector2(Screen.width, Screen.height);
+
         audioInputDevicesDropdown.onValueChanged.AddListener(OnAudioInputDevicesDropdownValueChanged);
         noteSelectorDropdown.onValueChanged.AddListener(NoteSelectorDropdownValueChanged);
 
@@ -51,6 +57,19 @@ public class UiHandler : MonoBehaviour
         soundAnalyzer.notesUpdated += OnNotesUpdated;
         soundAnalyzer.noteSelected += OnNoteSelected;
         soundAnalyzer.noteUpdated += OnNoteUpdated;
+    }
+
+    private void Update()
+    {
+        // First we check if the screen size changed
+        if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
+        {
+            screenResolutionChanged?.Invoke();
+
+            // And remember the resolution for next frame
+            screenResolution.x = Screen.width;
+            screenResolution.y = Screen.height;
+        }
     }
 
     void OnAddButtonClick()

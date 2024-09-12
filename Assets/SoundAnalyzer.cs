@@ -32,7 +32,6 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Button loadButton;
 
     [SerializeField] Button clearButton;
-
     [SerializeField] Button removeButton;
 
     [SerializeField] GameObject thresholdSliderPanel;
@@ -60,16 +59,13 @@ public class SoundAnalyzer : MonoBehaviour
     Note selectedNote;
     Datasource datasource;
 
-    Vector2 screenResolution;
+
     bool ignoreSliderEvent = false;
 
     int timeWhenLastNoteTriggeredInMS;
 
     void Awake()
     {
-        // We initially save the screen resolution to be later able to reacto to resize events
-        screenResolution = new Vector2(Screen.width, Screen.height);
-
         uiHandler.selectedNoteChanged += OnSelectedNoteChanged;
 
         uiHandler.selectNextNote += OnSelectNextNote;
@@ -78,6 +74,8 @@ public class SoundAnalyzer : MonoBehaviour
 
         uiHandler.updateCurrentNote += OnUpdateNote;
         uiHandler.addNewNote += OnAddNewNote;
+
+        uiHandler.screenResolutionChanged += OnScreenResolutionChnaged;
     }
 
     void Start()
@@ -151,6 +149,15 @@ public class SoundAnalyzer : MonoBehaviour
 
         closeButton.onClick.AddListener(delegate
         { Application.Quit(); });
+    }
+
+    void OnScreenResolutionChnaged()
+    {
+        // If so, we need to reposition all the threshold slider
+        foreach (Note note in datasource.notes)
+        {
+            note.SetThresholdSliderParentPosition();
+        }
     }
 
     void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
@@ -386,19 +393,7 @@ public class SoundAnalyzer : MonoBehaviour
 
     void Update()
     {
-        // First we check if the screen size changed
-        if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
-        {
-            // If so, we need to reposition all the threshold slider
-            foreach (Note note in datasource.notes)
-            {
-                note.SetThresholdSliderParentPosition();
-            }
 
-            // And remember the resolution for next frame
-            screenResolution.x = Screen.width;
-            screenResolution.y = Screen.height;
-        }
 
         if (oldTargetFrameRate != targetFrameRate)
         {
