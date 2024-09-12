@@ -8,7 +8,7 @@ using UnityEngine.UI;
 
 public class UiHandler : MonoBehaviour
 {
-    [SerializeField] SoundAnalyzer soundAnalyzer;
+    [SerializeField] Manager manager;
 
     [SerializeField] TMP_Dropdown audioInputDevicesDropdown;
     [SerializeField] TMP_Text selectedNoteText;
@@ -92,13 +92,13 @@ public class UiHandler : MonoBehaviour
         upperBoundSlider.onValueChanged.AddListener(OnUpperBoundSliderValueChanged);
         lowerBoundSlider.onValueChanged.AddListener(OnLowerBoundSliderValueChanged);
 
-        soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
-        soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
-        soundAnalyzer.notesUpdated += OnNotesUpdated;
-        soundAnalyzer.noteSelected += OnNoteSelected;
-        soundAnalyzer.noteUpdated += OnNoteUpdated;
+        manager.audioDevicesListUpdated += OnInputDevicesListUpdated;
+        manager.datasourceUpdated += OnDatasourceUpdated;
+        manager.notesUpdated += OnNotesUpdated;
+        manager.noteSelected += OnNoteSelected;
+        manager.noteUpdated += OnNoteUpdated;
 
-        soundAnalyzer.noteTriggered += OnNoteTriggered;
+        manager.noteTriggered += OnNoteTriggered;
     }
 
     private void Update()

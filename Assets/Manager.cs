@@ -1,14 +1,11 @@
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Audio;
 using System;
 using System.Collections.Generic;
 using SFB;
 using System.IO;
-using TMPro;
-using System.Linq;
 
-public class SoundAnalyzer : MonoBehaviour
+public class Manager : MonoBehaviour
 {
     [SerializeField] UiHandler uiHandler;
 
@@ -42,7 +39,9 @@ public class SoundAnalyzer : MonoBehaviour
     Note selectedNote;
     Datasource datasource;
 
-    bool ignoreSliderEvent = false;
+    // Define a timer and the interval for 30 updates per second for the texture update
+    float updateInterval = 1.0f / 30.0f;
+    float timer = 0f;
 
     void Awake()
     {
@@ -107,8 +106,31 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumTexture2D.Apply();
         spectrumRawImage.texture = spectrumTexture2D;
         spectrumTexturePixels = spectrumTexture2D.GetPixels();
+    }
 
+    void Update()
+    {
+        if (oldTargetFrameRate != targetFrameRate)
+        {
+            Application.targetFrameRate = targetFrameRate;
+            oldTargetFrameRate = targetFrameRate;
+        }
 
+        ProcessAudio();
+
+        // Accumulate time passed since last frame
+        timer += Time.deltaTime;
+
+        // Check if the accumulated time exceeds or equals the update interval
+        if (timer >= updateInterval)
+        {
+            // Update the texture
+            spectrumTexture2D.SetPixels(spectrumTexturePixels);
+            spectrumTexture2D.Apply();
+
+            // Reset the timer, subtracting the update interval to handle any overflow
+            timer -= updateInterval;
+        }
     }
 
     void OnScreenResolutionChnaged()
@@ -163,7 +185,7 @@ public class SoundAnalyzer : MonoBehaviour
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
-                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform),  datasource.retriggerMinimumLevel);
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), datasource.retriggerMinimumLevel);
             }
 
             notesUpdated?.Invoke(datasource.notes);
@@ -266,7 +288,7 @@ public class SoundAnalyzer : MonoBehaviour
         Note newNote = new Note(name, midiValue, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, 
+        newNote.InitializeNote(thresholdSliderPanel,
             Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform),
             datasource.retriggerMinimumLevel);
 
@@ -299,7 +321,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         // Remove note to notes list, unselect note and update UI
         datasource.notes.Remove(selectedNote);
-        
+
         Destroy(selectedNote.thresholdSlider.transform.parent.gameObject);
         UnselectNote();
         notesUpdated?.Invoke(datasource.notes);
@@ -307,42 +329,14 @@ public class SoundAnalyzer : MonoBehaviour
 
     void BandValueChanged(float lowerBound, float upperBound)
     {
-        if (selectedNote == null || ignoreSliderEvent == true)
+        // Todo: check if unnessesary and maybe remove
+        if (selectedNote == null)
+        {
             return;
+        }
 
         // Set bounds to note will update threshold position 
         selectedNote.SetNewBounds(Mathf.RoundToInt(lowerBound), Mathf.RoundToInt(upperBound));
-    }
-
-    // Define a timer and the interval for 24 updates per second
-    private float updateInterval = 1.0f / 24.0f;
-    private float timer = 0f;
-
-    void Update()
-    {
-
-
-        if (oldTargetFrameRate != targetFrameRate)
-        {
-            Application.targetFrameRate = targetFrameRate;
-            oldTargetFrameRate = targetFrameRate;
-        }
-
-        processAudio();
-
-        // Accumulate time passed since last frame
-        timer += Time.deltaTime;
-
-        // Check if the accumulated time exceeds or equals the update interval
-        if (timer >= updateInterval)
-        {
-            // Update the texture
-            spectrumTexture2D.SetPixels(spectrumTexturePixels);
-            spectrumTexture2D.Apply();
-
-            // Reset the timer, subtracting the update interval to handle any overflow
-            timer -= updateInterval;
-        }
     }
 
     public void ShiftTextureUpByOneLine(Color[] pixels)
@@ -361,7 +355,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void processAudio()
+    void ProcessAudio()
     {
         // Then shift the entire texture such that all the pixels are one entire row further down
         // This is done from back to front because otherwse the first row would be written to all rows
@@ -370,6 +364,7 @@ public class SoundAnalyzer : MonoBehaviour
         ColorLastTextureLine(spectrumTexturePixels, Color.black);
 
         float[] spectrum = audioHandler.GetSpectrumData();
+        List<int> peaks = audioHandler.DetectPeaks(spectrum, spectrumTextureWidth, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
         for (int i = 0; i < spectrum.Length; i++)
@@ -389,8 +384,6 @@ public class SoundAnalyzer : MonoBehaviour
             // First we colorize the current pixel with the color of the current spectrum value
             spectrumTexturePixels[i] = Helpers.MapValueToColor(spectrum[i]);
         }
-
-        List<int> peaks = audioHandler.DetectPeaks(spectrum, spectrumTextureWidth, lowerPeakDetectionThreshold, upperPeakDetectionThreshold);
 
         // Then we iterate over every note
         foreach (Note note in datasource.notes)
@@ -449,8 +442,6 @@ public class SoundAnalyzer : MonoBehaviour
                     {
                         spectrumTexturePixels[i] = Color.white;
                     }
-
-
                 }
 
                 Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));
