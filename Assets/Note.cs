@@ -37,12 +37,12 @@ public class Note
     float maxValueSinceTriggered;
 
     float thresholdSliderMaxValue;
-    GameObject thresholdSliderPanel { get; set; }
-    GameObject thresholdSliderParent { get; set; }
-    Slider thresholdSlider { get; set; }
-    Image thresholdBackgroundPanelImage { get; set; }
-    SoundAnalyzer soundAnalyzer { get; set; }
+    GameObject thresholdSliderPanel;
+    GameObject thresholdSliderParent;
+    Image thresholdBackgroundPanelImage;
+    SoundAnalyzer soundAnalyzer;
     MidiHandler midiHandler;
+    public Slider thresholdSlider {  get; private set; }
 
     public Note(string caption, byte midiValue, int lowerBound, int upperBound, float thresholdValue)
     {

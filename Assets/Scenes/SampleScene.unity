@@ -3512,6 +3512,10 @@ MonoBehaviour:
   previousButton: {fileID: 84533770}
   addButton: {fileID: 233757177}
   updateButton: {fileID: 1945013999}
+  clearButton: {fileID: 6318388}
+  removeButton: {fileID: 1618040119}
+  saveButton: {fileID: 989824787}
+  loadButton: {fileID: 688116815}
   noteNameInput: {fileID: 741410001}
   noteMidiInput: {fileID: 1026555859}
 --- !u!1 &534572392
@@ -6113,10 +6117,6 @@ MonoBehaviour:
   spectrumRawImage: {fileID: 978072849}
   upperBoundSlider: {fileID: 837797778}
   lowerBoundSlider: {fileID: 1147594968}
-  saveButton: {fileID: 989824787}
-  loadButton: {fileID: 688116815}
-  clearButton: {fileID: 6318388}
-  removeButton: {fileID: 1618040119}
   thresholdSliderPanel: {fileID: 594624505}
   thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
     type: 3}

@@ -21,6 +21,12 @@ public class UiHandler : MonoBehaviour
     [SerializeField] Button addButton;
     [SerializeField] Button updateButton;
 
+    [SerializeField] Button clearButton;
+    [SerializeField] Button removeButton;
+
+    [SerializeField] Button saveButton;
+    [SerializeField] Button loadButton;
+
     [SerializeField] TMP_InputField noteNameInput;
     [SerializeField] TMP_InputField noteMidiInput;
 
@@ -32,6 +38,10 @@ public class UiHandler : MonoBehaviour
     public Action unselectNote;
     public Action<string, byte> addNewNote;
     public Action<string, byte> updateCurrentNote;
+    public Action clearNotes;
+    public Action removeNote;
+    public Action loadDatasource;
+    public Action saveDatasource;
 
     public Action screenResolutionChanged;
     Vector2 screenResolution;
@@ -39,7 +49,6 @@ public class UiHandler : MonoBehaviour
     // Start is called before the first frame update
     void Awake()
     {
-        // We initially save the screen resolution to be later able to reacto to resize events
         screenResolution = new Vector2(Screen.width, Screen.height);
 
         audioInputDevicesDropdown.onValueChanged.AddListener(OnAudioInputDevicesDropdownValueChanged);
@@ -51,6 +60,11 @@ public class UiHandler : MonoBehaviour
 
         addButton.onClick.AddListener(OnAddButtonClick);
         updateButton.onClick.AddListener(OnUpdateButtonClick);
+        clearButton.onClick.AddListener(delegate { clearNotes?.Invoke(); });
+        removeButton.onClick.AddListener(delegate { removeNote?.Invoke(); });
+
+        saveButton.onClick.AddListener(delegate { saveDatasource?.Invoke(); });
+        loadButton.onClick.AddListener(delegate { loadDatasource?.Invoke(); });
 
         soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
         soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
@@ -61,12 +75,10 @@ public class UiHandler : MonoBehaviour
 
     private void Update()
     {
-        // First we check if the screen size changed
         if (screenResolution.x != Screen.width || screenResolution.y != Screen.height)
         {
             screenResolutionChanged?.Invoke();
 
-            // And remember the resolution for next frame
             screenResolution.x = Screen.width;
             screenResolution.y = Screen.height;
         }

@@ -28,12 +28,6 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] Slider upperBoundSlider;
     [SerializeField] Slider lowerBoundSlider;
 
-    [SerializeField] Button saveButton;
-    [SerializeField] Button loadButton;
-
-    [SerializeField] Button clearButton;
-    [SerializeField] Button removeButton;
-
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
 
@@ -59,7 +53,6 @@ public class SoundAnalyzer : MonoBehaviour
     Note selectedNote;
     Datasource datasource;
 
-
     bool ignoreSliderEvent = false;
 
     int timeWhenLastNoteTriggeredInMS;
@@ -74,6 +67,11 @@ public class SoundAnalyzer : MonoBehaviour
 
         uiHandler.updateCurrentNote += OnUpdateNote;
         uiHandler.addNewNote += OnAddNewNote;
+        uiHandler.clearNotes += OnClearNotes;
+        uiHandler.removeNote += OnRemoveNote;
+
+        uiHandler.loadDatasource += OnLoadDatasource;
+        uiHandler.saveDatasource += OnSaveDatasource;
 
         uiHandler.screenResolutionChanged += OnScreenResolutionChnaged;
     }
@@ -127,18 +125,6 @@ public class SoundAnalyzer : MonoBehaviour
         lowerBoundSlider.onValueChanged.AddListener(delegate
         { LowerBoundSliderValueChanged(lowerBoundSlider); });
 
-        saveButton.onClick.AddListener(delegate
-        { SaveButtonClick(); });
-
-        loadButton.onClick.AddListener(delegate
-        { LoadButtonClick(); });
-
-        clearButton.onClick.AddListener(delegate
-        { ClearButtonClick(); });
-
-        removeButton.onClick.AddListener(delegate
-        { RemoveButtonClick(); });
-
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
 
@@ -175,7 +161,7 @@ public class SoundAnalyzer : MonoBehaviour
         retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f);
     }
 
-    void SaveButtonClick()
+    void OnSaveDatasource()
     {
         // Currently, the output is logged where it can be recovered to be put in the kalimbaSetup string
         Debug.Log(JsonUtility.ToJson(datasource));
@@ -190,7 +176,7 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void LoadButtonClick()
+    void OnLoadDatasource()
     {
         string[] paths = StandaloneFileBrowser.OpenFilePanel("Open File", "", new[] { new ExtensionFilter("Kalimba Hero", "kal") }, true);
 
@@ -237,8 +223,6 @@ public class SoundAnalyzer : MonoBehaviour
         
         noteSelected?.Invoke(note);
        
-
-
         // While initially setting the bounds, we need to prevent the slider update event to be triggered 
         // E.g. after setting the lowerBoundSlider.value, the event already fires and uses an old upperBoundSlider.value
         ignoreSliderEvent = true;
@@ -251,7 +235,7 @@ public class SoundAnalyzer : MonoBehaviour
         upperBoundSlider.gameObject.SetActive(true);
     }
 
-    void ClearButtonClick()
+    void OnClearNotes()
     {
         // Remove all notes from list
         datasource.notes.Clear();
@@ -352,13 +336,19 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void RemoveButtonClick()
+    void OnRemoveNote()
     {
+        if (selectedNote == null)
+        {
+            return;
+        }
+
         // Remove note to notes list, unselect note and update UI
         datasource.notes.Remove(selectedNote);
-        notesUpdated?.Invoke(datasource.notes);
-
+        
+        Destroy(selectedNote.thresholdSlider.transform.parent.gameObject);
         UnselectNote();
+        notesUpdated?.Invoke(datasource.notes);
     }
 
     void UpperBoundSliderValueChanged(Slider upperBoundSlider)
