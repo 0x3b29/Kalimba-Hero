@@ -24,9 +24,7 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] MidiHandler midiHandler;
 
     [SerializeField] RawImage spectrumRawImage;
-
-    [SerializeField] TMP_Text selectedNoteText;
-    [SerializeField] TMP_Dropdown noteSelectorDropdown;
+    
 
     [SerializeField] Slider upperBoundSlider;
     [SerializeField] Slider lowerBoundSlider;
@@ -59,6 +57,9 @@ public class SoundAnalyzer : MonoBehaviour
 
     public Action<List<string>> audioDevicesListUpdated;
     public Action<Datasource> datasourceUpdated;
+    public Action<List<Note>> notesUpdated;
+    public Action<Note> noteSelected;
+    public Action<Note> noteUpdated;
 
     const int spectrumTextureWidth = 512;
     const int spectrumTextureHeight = 400;
@@ -77,6 +78,8 @@ public class SoundAnalyzer : MonoBehaviour
     {
         // We initially save the screen resolution to be later able to reacto to resize events
         screenResolution = new Vector2(Screen.width, Screen.height);
+
+        uiHandler.selectedNoteChanged += OnSelectedNoteChanged;
     }
 
     void Start()
@@ -122,10 +125,6 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumTexturePixels = spectrumTexture2D.GetPixels();
 
         // Create all the delegate functions for the UI compnents
-
-        noteSelectorDropdown.onValueChanged.AddListener(delegate
-        { noteSelectorDropdownValueChanged(noteSelectorDropdown); });
-
         upperBoundSlider.onValueChanged.AddListener(delegate
         { UpperBoundSliderValueChanged(upperBoundSlider); });
 
@@ -143,6 +142,9 @@ public class SoundAnalyzer : MonoBehaviour
 
         addButton.onClick.AddListener(delegate
         { AddButtonClick(); });
+
+        removeButton.onClick.AddListener(delegate
+        { RemoveButtonClick(); });
 
         updateButton.onClick.AddListener(delegate
         { UpdateButtonClick(); });
@@ -211,15 +213,13 @@ public class SoundAnalyzer : MonoBehaviour
             // And a root object is recovered from it which then contains the list of notes
             datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
 
-
-
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
                 note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerMinimumLevel, midiHandler);
             }
 
-            UpdateDropdownOptions();
+            notesUpdated?.Invoke(datasource.notes);
 
             retriggerLevelSlider.value = datasource.retriggerMinimumLevel;
         }
@@ -228,22 +228,27 @@ public class SoundAnalyzer : MonoBehaviour
     void UnselectNote()
     {
         selectedNote = null;
-        selectedNoteText.text = "/";
+        noteSelected?.Invoke(null);
 
         // If no note is selected, there is no need for the bounds sliders to be visible
         lowerBoundSlider.gameObject.SetActive(false);
         upperBoundSlider.gameObject.SetActive(false);
     }
 
+    void OnSelectedNoteChanged(string selectedNoteName)
+    {
+        Note selectedNote = datasource.notes.Find(x => x.caption == selectedNoteName);
+        SelectNote(selectedNote);
+    }
+
     void SelectNote(Note note)
     {
         selectedNote = note;
-        selectedNoteText.text = note.caption + "(" + note.midiValue + ")";
+        
+        noteSelected?.Invoke(note);
         noteNameInput.text = note.caption;
         noteMidiInput.text = note.midiValue.ToString();
 
-        // Try to find the correct entry in the dropdown
-        noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == note);
 
         // While initially setting the bounds, we need to prevent the slider update event to be triggered 
         // E.g. after setting the lowerBoundSlider.value, the event already fires and uses an old upperBoundSlider.value
@@ -269,9 +274,9 @@ public class SoundAnalyzer : MonoBehaviour
         }
 
         // Empty dropdown & unselect
-        noteSelectorDropdown.options.Clear();
+
+        notesUpdated?.Invoke(datasource.notes);
         UnselectNote();
-        noteSelectorDropdown.RefreshShownValue();
     }
 
     void NextButtonClick()
@@ -341,7 +346,7 @@ public class SoundAnalyzer : MonoBehaviour
 
         // Add note to notes list, select new note and update UI
         datasource.notes.Add(newNote);
-        UpdateDropdownOptions();
+        notesUpdated?.Invoke(datasource.notes);
         SelectNote(newNote);
     }
 
@@ -356,8 +361,7 @@ public class SoundAnalyzer : MonoBehaviour
             selectedNote.caption = noteNameInput.text;
             selectedNote.midiValue = midiValue;
 
-            UpdateDropdownOptions();
-            selectedNoteText.text = selectedNote.caption;
+            noteUpdated?.Invoke(selectedNote);
         }
     }
 
@@ -365,38 +369,9 @@ public class SoundAnalyzer : MonoBehaviour
     {
         // Remove note to notes list, unselect note and update UI
         datasource.notes.Remove(selectedNote);
-        UpdateDropdownOptions();
+        notesUpdated?.Invoke(datasource.notes);
+
         UnselectNote();
-    }
-
-    void UpdateDropdownOptions()
-    {
-        // Clear all elements from dropdown list
-        noteSelectorDropdown.options.Clear();
-
-        // Create a new Dropdown entry for each note
-        foreach (Note note in datasource.notes)
-        {
-            noteSelectorDropdown.options.Add(new TMP_Dropdown.OptionData(note.caption));
-        }
-
-        // Select the currently selected note (if any)
-        if (selectedNote != null)
-            noteSelectorDropdown.value = datasource.notes.FindIndex(x => x == selectedNote);
-
-        noteSelectorDropdown.RefreshShownValue();
-    }
-
-    void noteSelectorDropdownValueChanged(TMP_Dropdown change)
-    {
-        // Options count means no options at all, noting to select
-        if (change.options.Count == 0)
-        {
-            return;
-        }
-
-        // Otherwise, select note from notes list
-        SelectNote(datasource.notes[change.value]);
     }
 
     void UpperBoundSliderValueChanged(Slider upperBoundSlider)

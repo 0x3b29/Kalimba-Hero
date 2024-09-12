@@ -3505,6 +3505,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   soundAnalyzer: {fileID: 963194231}
   audioInputDevicesDropdown: {fileID: 785239610}
+  selectedNoteText: {fileID: 1327905518}
+  noteSelectorDropdown: {fileID: 1673157586}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -6102,8 +6104,6 @@ MonoBehaviour:
   audioHandler: {fileID: 2089616487}
   midiHandler: {fileID: 58196259}
   spectrumRawImage: {fileID: 978072849}
-  selectedNoteText: {fileID: 1327905518}
-  noteSelectorDropdown: {fileID: 1673157586}
   upperBoundSlider: {fileID: 837797778}
   lowerBoundSlider: {fileID: 1147594968}
   saveButton: {fileID: 989824787}
