@@ -18,6 +18,8 @@ public enum SpectrumSize
 
 public class AudioHandler : MonoBehaviour
 {
+    [SerializeField] UiHandler uiHandler;
+
     [SerializeField] AudioClip m_Clip;
     [SerializeField] bool forceResyncDuringNextUpdate = false;
 
@@ -38,13 +40,18 @@ public class AudioHandler : MonoBehaviour
     string currentInputDeviceName;
     int currentInputDeviceFrequency;
 
+    private void Awake()
+    {
+        uiHandler.selectedAudioInputDeviceChanged += OnSelectedAudioDeviceChanged;
+    }
+
     void Start()
     {
         spectrum = new float[((int)spectrumSize)];
         oldSpectrumSize = spectrumSize;
     }
 
-    public void UpdateAudioSource(string inputDeviceName)
+    void OnSelectedAudioDeviceChanged(string inputDeviceName)
     {
         StartCoroutine(UpdateAudioSourceAsync(inputDeviceName));
     }

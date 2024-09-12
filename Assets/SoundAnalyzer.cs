@@ -10,6 +10,8 @@ using System.Linq;
 
 public class SoundAnalyzer : MonoBehaviour
 {
+    [SerializeField] UiHandler uiHandler;
+
     [SerializeField] float lowerPeakDetectionThreshold;
     [SerializeField] float upperPeakDetectionThreshold;
     [SerializeField] bool drawRawSpectrum;
@@ -22,7 +24,7 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] MidiHandler midiHandler;
 
     [SerializeField] RawImage spectrumRawImage;
-    [SerializeField] TMP_Dropdown inputDeviceDropdown;
+
     [SerializeField] TMP_Text selectedNoteText;
     [SerializeField] TMP_Dropdown noteSelectorDropdown;
 
@@ -55,6 +57,9 @@ public class SoundAnalyzer : MonoBehaviour
 
     [SerializeField] Button closeButton;
 
+    public Action<List<string>> audioDevicesListUpdated;
+    public Action<Datasource> datasourceUpdated;
+
     const int spectrumTextureWidth = 512;
     const int spectrumTextureHeight = 400;
     Texture2D spectrumTexture2D;
@@ -81,24 +86,22 @@ public class SoundAnalyzer : MonoBehaviour
 
         datasource = new Datasource(1.2f);
 
+        List<string> audioDevices = new List<string>();
+
         foreach (String device in Microphone.devices)
         {
-            inputDeviceDropdown.options.Add(new TMP_Dropdown.OptionData(device));
+            audioDevices.Add(device);
         }
 
-        if (inputDeviceDropdown.options.Count == 0)
+        if (audioDevices.Count == 0)
         {
             Debug.LogError("No audio device found.");
             return;
         }
 
+        audioDevicesListUpdated.Invoke(audioDevices);
+
         datasource.selectedAudioDevice = Microphone.devices[0];
-        inputDeviceDropdown.value = 0;
-        inputDeviceDropdown.RefreshShownValue();
-
-        string audioDeviceName = inputDeviceDropdown.options[0].text;
-
-        audioHandler.UpdateAudioSource(audioDeviceName);
 
         // Create a new texture which we will use to draw the spectrum into
         spectrumTexture2D = new Texture2D(spectrumTextureWidth, spectrumTextureHeight);
@@ -119,8 +122,6 @@ public class SoundAnalyzer : MonoBehaviour
         spectrumTexturePixels = spectrumTexture2D.GetPixels();
 
         // Create all the delegate functions for the UI compnents
-        inputDeviceDropdown.onValueChanged.AddListener(delegate
-        { InputDeviceDropdownValueChanged(inputDeviceDropdown); });
 
         noteSelectorDropdown.onValueChanged.AddListener(delegate
         { noteSelectorDropdownValueChanged(noteSelectorDropdown); });
@@ -167,17 +168,6 @@ public class SoundAnalyzer : MonoBehaviour
         { Application.Quit(); });
     }
 
-    void InputDeviceDropdownValueChanged(TMP_Dropdown inputDeviceDropdown)
-    {
-        if (inputDeviceDropdown.options[inputDeviceDropdown.value].text != datasource.selectedAudioDevice)
-        {
-            string deviceName = inputDeviceDropdown.options[inputDeviceDropdown.value].text;
-
-            audioHandler.UpdateAudioSource(deviceName);
-            datasource.selectedAudioDevice = deviceName;
-        }
-    }
-
     void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
     {
         // All the notes are updated with the new retrigger level value
@@ -221,28 +211,7 @@ public class SoundAnalyzer : MonoBehaviour
             // And a root object is recovered from it which then contains the list of notes
             datasource = JsonUtility.FromJson<Datasource>(kalimbaSetup);
 
-            // In case previously selected Mic is not available, we select the first one that is
-            if (!Microphone.devices.Any(x => x.Equals(datasource.selectedAudioDevice)))
-            {
-                datasource.selectedAudioDevice = Microphone.devices[0];
-            }
-            else
-            {
-                int inputDeviceIndex = 0;
 
-                foreach (TMP_Dropdown.OptionData optionData in inputDeviceDropdown.options)
-                {
-                    if (optionData.text.Equals(datasource.selectedAudioDevice))
-                    {
-                        inputDeviceIndex = inputDeviceDropdown.options.IndexOf(optionData);
-                    }
-                }
-
-                inputDeviceDropdown.value = inputDeviceIndex;
-                inputDeviceDropdown.RefreshShownValue();
-            }
-
-            audioHandler.UpdateAudioSource(datasource.selectedAudioDevice);
 
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
@@ -515,16 +484,14 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-
-
     void processAudio()
     {
         // Then shift the entire texture such that all the pixels are one entire row further down
         // This is done from back to front because otherwse the first row would be written to all rows
-        
+
         ShiftTextureUpByOneLine(spectrumTexturePixels);
         ColorLastTextureLine(spectrumTexturePixels, Color.black);
-        
+
         float[] spectrum = audioHandler.GetSpectrumData();
 
         // Next we loop over the entire spectrum and add a new line of pixels with the most recent audio data
@@ -602,7 +569,7 @@ public class SoundAnalyzer : MonoBehaviour
                         spectrumTexturePixels[i] = Color.white;
                     }
 
-                    
+
                 }
 
                 Color color = Color.Lerp(Color.yellow, Color.blue, Helpers.MapRange(note.framesSinceTriggered, 0, 10, 0, 1));

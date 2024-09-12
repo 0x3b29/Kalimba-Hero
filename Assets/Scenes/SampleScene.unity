@@ -3468,6 +3468,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 454533663}
+  - component: {fileID: 454533664}
   m_Layer: 0
   m_Name: UI Handler
   m_TagString: Untagged
@@ -3490,6 +3491,20 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 1
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &454533664
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 454533662}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0197598d7ce71874ea5c5aab4478d8bf, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  soundAnalyzer: {fileID: 963194231}
+  audioInputDevicesDropdown: {fileID: 785239610}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -4603,7 +4618,7 @@ GameObject:
   - component: {fileID: 785239611}
   - component: {fileID: 785239610}
   m_Layer: 5
-  m_Name: Input Device Dropdown
+  m_Name: Audio Input Device Dropdown
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -6078,6 +6093,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bcc4e666a21f30946a227829f26b13b6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  uiHandler: {fileID: 454533664}
   lowerPeakDetectionThreshold: 0.005
   upperPeakDetectionThreshold: 0.0002
   drawRawSpectrum: 1
@@ -6086,7 +6102,6 @@ MonoBehaviour:
   audioHandler: {fileID: 2089616487}
   midiHandler: {fileID: 58196259}
   spectrumRawImage: {fileID: 978072849}
-  inputDeviceDropdown: {fileID: 785239610}
   selectedNoteText: {fileID: 1327905518}
   noteSelectorDropdown: {fileID: 1673157586}
   upperBoundSlider: {fileID: 837797778}
@@ -11036,6 +11051,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: bb178b1b0a0e3354ebf5039d83cbe094, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  uiHandler: {fileID: 454533664}
   m_Clip: {fileID: 0}
   forceResyncDuringNextUpdate: 0
   loadAudioClip: 0
