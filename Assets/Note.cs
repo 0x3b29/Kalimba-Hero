@@ -5,15 +5,11 @@ using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
-
-
-
-
 public enum NoteState
 {
     notTriggered,
-    rising,
-    falling,
+    triggeredAndRising,
+    triggeredAndFalling,
 }
 
 [Serializable]
@@ -40,8 +36,6 @@ public class Note
     GameObject thresholdSliderPanel;
     GameObject thresholdSliderParent;
     Image thresholdBackgroundPanelImage;
-    SoundAnalyzer soundAnalyzer;
-    MidiHandler midiHandler;
     public Slider thresholdSlider {  get; private set; }
 
     public Note(string caption, byte midiValue, int lowerBound, int upperBound, float thresholdValue)
@@ -53,12 +47,11 @@ public class Note
         this.midiValue = midiValue;
     }
 
-    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, SoundAnalyzer soundAnalyzer, float minRetriggerLevel, MidiHandler midiHandler)
+    public void InitializeNote(GameObject thresholdSliderPanel, GameObject thresholdSliderParent, float minRetriggerLevel)
     {
         // This function is executed after loading or creating of notes
         this.thresholdSliderPanel = thresholdSliderPanel;
         this.thresholdSliderParent = thresholdSliderParent;
-        this.soundAnalyzer = soundAnalyzer;
         this.minRetriggerLevel = minRetriggerLevel;
 
         // The thresholdSliderParent has just been created, therefore set a usefull name
@@ -83,8 +76,6 @@ public class Note
         });
 
         noteState = NoteState.notTriggered;
-
-        this.midiHandler = midiHandler;
     }
 
     public void TresholdSliderValueChanged(Slider thresholdSlider)
@@ -135,18 +126,10 @@ public class Note
         SetThresholdSliderParentPosition();
     }
 
-    public void IncFrameCounter()
-    {
-        if (noteState == NoteState.notTriggered)
-        {
-            return;
-        }
-
-        framesSinceTriggered++;
-    }
-
     public void SetValue(float value, bool wasPeakInsideBounds)
     {
+        framesSinceTriggered++;
+
         // Sets the maximum sound level for the note 
         if (value > thresholdSliderMaxValue)
         {
@@ -157,57 +140,55 @@ public class Note
         // Set the threshold slider background
         thresholdBackgroundPanelImage.fillAmount = 1 / thresholdSliderMaxValue * value;
 
-        if (noteState == NoteState.notTriggered && value > thresholdValue && wasPeakInsideBounds)
+        if (noteState == NoteState.notTriggered && 
+            value > thresholdValue && 
+            wasPeakInsideBounds)
         {
-            noteState = NoteState.rising;
+            noteState = NoteState.triggeredAndRising;
             maxValueSinceTriggered = value;
             framesSinceTriggered = 0;
             lastTriggeredFrame = Time.frameCount;
 
-            midiHandler.SendNoteOnEvent(midiValue, 127);
-            soundAnalyzer.UpdateUIForTriggeredNote(caption);
             return;
         }
 
         if (noteState != NoteState.notTriggered && value < (thresholdValue * 0.8f))
         {
             noteState = NoteState.notTriggered;
-            framesSinceTriggered = 0;
 
             return;
         }
 
-        if (noteState == NoteState.rising && value > maxValueSinceTriggered)
+        if (noteState == NoteState.triggeredAndRising && value > maxValueSinceTriggered)
         {
             maxValueSinceTriggered = value;
             return;
         }
 
-        if (noteState == NoteState.rising && value < maxValueSinceTriggered)
+        if (noteState == NoteState.triggeredAndRising && value < maxValueSinceTriggered)
         {
-            noteState = NoteState.falling;
+            noteState = NoteState.triggeredAndFalling;
             minValueSinceTriggered = value;
 
             return;
         }
 
-        if (noteState == NoteState.falling && value < minValueSinceTriggered)
+        if (noteState == NoteState.triggeredAndFalling && value < minValueSinceTriggered)
         {
             minValueSinceTriggered = value;
 
             return;
         }
 
-        if (noteState == NoteState.falling && value > minValueSinceTriggered * minRetriggerLevel && wasPeakInsideBounds)
+        if (noteState == NoteState.triggeredAndFalling && 
+            value > minValueSinceTriggered * minRetriggerLevel && 
+            wasPeakInsideBounds)
         {
 
-            noteState = NoteState.rising;
+            noteState = NoteState.triggeredAndRising;
             maxValueSinceTriggered = value;
             framesSinceTriggered = 0;
             lastTriggeredFrame = Time.frameCount;
-
-            midiHandler.SendNoteOnEvent(midiValue, 127);
-            soundAnalyzer.UpdateUIForTriggeredNote(caption);
 
             return;
         }

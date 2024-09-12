@@ -22,7 +22,6 @@ public class SoundAnalyzer : MonoBehaviour
 
     [SerializeField] AudioHandler audioHandler;
     [SerializeField] MidiHandler midiHandler;
-
     [SerializeField] RawImage spectrumRawImage;
 
     [SerializeField] Slider upperBoundSlider;
@@ -31,19 +30,12 @@ public class SoundAnalyzer : MonoBehaviour
     [SerializeField] GameObject thresholdSliderPanel;
     [SerializeField] GameObject thresholdSliderPrefab;
 
-    [SerializeField] Slider retriggerLevelSlider;
-    [SerializeField] TMP_Text retriggerLevelText;
-
-    [SerializeField] TMP_InputField outputInputField;
-    [SerializeField] Button clearOutputButton;
-
-    [SerializeField] Button closeButton;
-
     public Action<List<string>> audioDevicesListUpdated;
     public Action<Datasource> datasourceUpdated;
     public Action<List<Note>> notesUpdated;
     public Action<Note> noteSelected;
     public Action<Note> noteUpdated;
+    public Action<Note> noteTriggered;
 
     const int spectrumTextureWidth = 512;
     const int spectrumTextureHeight = 400;
@@ -54,8 +46,6 @@ public class SoundAnalyzer : MonoBehaviour
     Datasource datasource;
 
     bool ignoreSliderEvent = false;
-
-    int timeWhenLastNoteTriggeredInMS;
 
     void Awake()
     {
@@ -74,6 +64,7 @@ public class SoundAnalyzer : MonoBehaviour
         uiHandler.saveDatasource += OnSaveDatasource;
 
         uiHandler.screenResolutionChanged += OnScreenResolutionChnaged;
+        uiHandler.retriggerLevelChanged += OnRetriggerLevelChanged;
     }
 
     void Start()
@@ -125,16 +116,7 @@ public class SoundAnalyzer : MonoBehaviour
         lowerBoundSlider.onValueChanged.AddListener(delegate
         { LowerBoundSliderValueChanged(lowerBoundSlider); });
 
-        retriggerLevelSlider.onValueChanged.AddListener(delegate
-        { RetriggerLevelSliderChanged(retriggerLevelSlider); });
 
-        clearOutputButton.onClick.AddListener(delegate
-        {
-            outputInputField.text = "";
-        });
-
-        closeButton.onClick.AddListener(delegate
-        { Application.Quit(); });
     }
 
     void OnScreenResolutionChnaged()
@@ -146,19 +128,16 @@ public class SoundAnalyzer : MonoBehaviour
         }
     }
 
-    void RetriggerLevelSliderChanged(Slider retriggerLevelSlider)
+    void OnRetriggerLevelChanged(float newRetriggerLevel)
     {
         // All the notes are updated with the new retrigger level value
         foreach (Note note in datasource.notes)
         {
-            note.minRetriggerLevel = retriggerLevelSlider.value;
+            note.minRetriggerLevel = newRetriggerLevel;
         }
 
         // Also remember value in datasource for saveing and loading
-        datasource.retriggerMinimumLevel = retriggerLevelSlider.value;
-
-        // Update the Text label for feedback
-        retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(retriggerLevelSlider.value * 100) / 100f);
+        datasource.retriggerMinimumLevel = newRetriggerLevel;
     }
 
     void OnSaveDatasource()
@@ -192,12 +171,10 @@ public class SoundAnalyzer : MonoBehaviour
             // Only the custom values are recovered. Therefore, we need to reinitialize the notes
             foreach (Note note in datasource.notes)
             {
-                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, datasource.retriggerMinimumLevel, midiHandler);
+                note.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform),  datasource.retriggerMinimumLevel);
             }
 
             notesUpdated?.Invoke(datasource.notes);
-
-            retriggerLevelSlider.value = datasource.retriggerMinimumLevel;
         }
     }
 
@@ -307,14 +284,15 @@ public class SoundAnalyzer : MonoBehaviour
 
     void OnAddNewNote(string name, byte midiValue)
     {
-
         midiValue = (byte)Mathf.Min(127, (int)midiValue);
 
         // Create new note
         Note newNote = new Note(name, midiValue, 0, 0, 0);
 
         // Initialize new note
-        newNote.InitializeNote(thresholdSliderPanel, Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform), this, retriggerLevelSlider.value, midiHandler);
+        newNote.InitializeNote(thresholdSliderPanel, 
+            Instantiate(thresholdSliderPrefab, thresholdSliderPanel.transform),
+            datasource.retriggerMinimumLevel);
 
         // Add note to notes list, select new note and update UI
         datasource.notes.Add(newNote);
@@ -472,8 +450,6 @@ public class SoundAnalyzer : MonoBehaviour
                 spectrumTexturePixels[note.GetUpperBound()] = Color.green;
             }
 
-            note.IncFrameCounter();
-
             // For each note, we calculate the level of sound
             float accumulator = 0;
 
@@ -493,6 +469,12 @@ public class SoundAnalyzer : MonoBehaviour
             }
 
             note.SetValue(accumulator, foundPeak);
+
+            if (note.framesSinceTriggered == 0)
+            {
+                noteTriggered(note);
+                midiHandler.SendNoteOnEvent(note.midiValue, 127);
+            }
 
             // Then mark the spectrum of the note according to its state
             if (note.noteState != NoteState.notTriggered)
@@ -521,24 +503,6 @@ public class SoundAnalyzer : MonoBehaviour
         foreach (int peak in peaks)
         {
             spectrumTexturePixels[peak] = Color.white;
-        }
-    }
-
-    public void UpdateUIForTriggeredNote(string note)
-    {
-        // This funciton is called from the notes to update the update the UI
-
-        if (outputInputField.text == "")
-        {
-            // If the output field is empty, we set the triggered note and remember the time
-            timeWhenLastNoteTriggeredInMS = Mathf.RoundToInt(Time.time * 1000);
-            outputInputField.text = note + ", ";
-        }
-        else
-        {
-            // If the output field already contains data, we append the difference between the time when last note triggered and now as well as the new note
-            outputInputField.text += Mathf.RoundToInt(Time.time * 1000) - timeWhenLastNoteTriggeredInMS + "; " + note + ", ";
-            timeWhenLastNoteTriggeredInMS = Mathf.RoundToInt(Time.time * 1000);
         }
     }
 }

@@ -30,6 +30,14 @@ public class UiHandler : MonoBehaviour
     [SerializeField] TMP_InputField noteNameInput;
     [SerializeField] TMP_InputField noteMidiInput;
 
+    [SerializeField] Slider retriggerLevelSlider;
+    [SerializeField] TMP_Text retriggerLevelText;
+
+    [SerializeField] TMP_InputField outputInputField;
+    [SerializeField] Button clearOutputButton;
+
+    [SerializeField] Button closeButton;
+
     public Action<string> selectedAudioInputDeviceChanged;
     public Action<string> selectedNoteChanged;
 
@@ -45,6 +53,10 @@ public class UiHandler : MonoBehaviour
 
     public Action screenResolutionChanged;
     Vector2 screenResolution;
+
+    public Action<float> retriggerLevelChanged;
+
+    int timeWhenLastNoteTriggeredInMS;
 
     // Start is called before the first frame update
     void Awake()
@@ -66,11 +78,19 @@ public class UiHandler : MonoBehaviour
         saveButton.onClick.AddListener(delegate { saveDatasource?.Invoke(); });
         loadButton.onClick.AddListener(delegate { loadDatasource?.Invoke(); });
 
+        retriggerLevelSlider.onValueChanged.AddListener(OnRetriggerLevelSliderValueChanged);
+
+        clearOutputButton.onClick.AddListener(delegate { outputInputField.text = ""; });
+
+        closeButton.onClick.AddListener(delegate { Application.Quit(); });
+
         soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
         soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
         soundAnalyzer.notesUpdated += OnNotesUpdated;
         soundAnalyzer.noteSelected += OnNoteSelected;
         soundAnalyzer.noteUpdated += OnNoteUpdated;
+
+        soundAnalyzer.noteTriggered += OnNoteTriggered;
     }
 
     private void Update()
@@ -82,6 +102,12 @@ public class UiHandler : MonoBehaviour
             screenResolution.x = Screen.width;
             screenResolution.y = Screen.height;
         }
+    }
+
+    void OnRetriggerLevelSliderValueChanged(float newRetriggerLevel)
+    {
+        retriggerLevelChanged?.Invoke(newRetriggerLevel);
+        retriggerLevelText.text = "Level for retrigger: " + (Mathf.Round(newRetriggerLevel* 100) / 100f);
     }
 
     void OnAddButtonClick()
@@ -184,5 +210,25 @@ public class UiHandler : MonoBehaviour
         audioInputDevicesDropdown.RefreshShownValue();
 
         selectedAudioInputDeviceChanged.Invoke(audioInputDevicesDropdown.options[inputDeviceIndex].text);
+
+        retriggerLevelSlider.value = newDatasource.retriggerMinimumLevel;
+    }
+
+    public void OnNoteTriggered(Note note)
+    {
+        // This funciton is called from the notes to update the update the UI
+
+        if (outputInputField.text == "")
+        {
+            // If the output field is empty, we set the triggered note and remember the time
+            timeWhenLastNoteTriggeredInMS = Mathf.RoundToInt(Time.time * 1000);
+            outputInputField.text = note.caption + ", ";
+        }
+        else
+        {
+            // If the output field already contains data, we append the difference between the time when last note triggered and now as well as the new note
+            outputInputField.text += Mathf.RoundToInt(Time.time * 1000) - timeWhenLastNoteTriggeredInMS + "; " + note.caption + ", ";
+            timeWhenLastNoteTriggeredInMS = Mathf.RoundToInt(Time.time * 1000);
+        }
     }
 }

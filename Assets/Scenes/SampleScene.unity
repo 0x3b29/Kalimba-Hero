@@ -3518,6 +3518,11 @@ MonoBehaviour:
   loadButton: {fileID: 688116815}
   noteNameInput: {fileID: 741410001}
   noteMidiInput: {fileID: 1026555859}
+  retriggerLevelSlider: {fileID: 34166772}
+  retriggerLevelText: {fileID: 302799826}
+  outputInputField: {fileID: 210566733}
+  clearOutputButton: {fileID: 1865057692}
+  closeButton: {fileID: 944979581}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -6120,11 +6125,6 @@ MonoBehaviour:
   thresholdSliderPanel: {fileID: 594624505}
   thresholdSliderPrefab: {fileID: 8319887599183491842, guid: 51c244848c6389048819e1c713876f07,
     type: 3}
-  retriggerLevelSlider: {fileID: 34166772}
-  retriggerLevelText: {fileID: 302799826}
-  outputInputField: {fileID: 210566733}
-  clearOutputButton: {fileID: 1865057692}
-  closeButton: {fileID: 944979581}
 --- !u!1 &970736486
 GameObject:
   m_ObjectHideFlags: 0
