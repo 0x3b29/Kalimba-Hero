@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using TMPro;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class UiHandler : MonoBehaviour
 {
@@ -13,14 +14,26 @@ public class UiHandler : MonoBehaviour
     [SerializeField] TMP_Text selectedNoteText;
     [SerializeField] TMP_Dropdown noteSelectorDropdown;
 
+    [SerializeField] Button nextButton;
+    [SerializeField] Button unselectButton;
+    [SerializeField] Button previousButton;
+
     public Action<string> selectedAudioInputDeviceChanged;
     public Action<string> selectedNoteChanged;
+
+    public Action selectNextNote;
+    public Action selectPreviousNote;
+    public Action unselectNote;
 
     // Start is called before the first frame update
     void Awake()
     {
         audioInputDevicesDropdown.onValueChanged.AddListener(OnAudioInputDevicesDropdownValueChanged);
-        noteSelectorDropdown.onValueChanged.AddListener(noteSelectorDropdownValueChanged);
+        noteSelectorDropdown.onValueChanged.AddListener(NoteSelectorDropdownValueChanged);
+
+        nextButton.onClick.AddListener(delegate { selectNextNote?.Invoke(); });
+        previousButton.onClick.AddListener(delegate { selectPreviousNote?.Invoke(); });
+        unselectButton.onClick.AddListener(delegate { unselectNote?.Invoke(); });
 
         soundAnalyzer.audioDevicesListUpdated += OnInputDevicesListUpdated;
         soundAnalyzer.datasourceUpdated += OnDatasourceUpdated;
@@ -62,7 +75,7 @@ public class UiHandler : MonoBehaviour
         selectedNoteText.text = note.caption + "(" + note.midiValue + ")";
     }
 
-    void noteSelectorDropdownValueChanged(int newSelectedIndex)
+    void NoteSelectorDropdownValueChanged(int newSelectedIndex)
     {
         selectedNoteChanged?.Invoke(noteSelectorDropdown.options[newSelectedIndex].text);
     }

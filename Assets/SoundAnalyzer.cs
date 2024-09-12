@@ -37,10 +37,6 @@ public class SoundAnalyzer : MonoBehaviour
 
     [SerializeField] Button removeButton;
 
-    [SerializeField] Button nextButton;
-    [SerializeField] Button unselectButton;
-    [SerializeField] Button previousButton;
-
     [SerializeField] TMP_InputField noteNameInput;
     [SerializeField] TMP_InputField noteMidiInput;
 
@@ -80,6 +76,10 @@ public class SoundAnalyzer : MonoBehaviour
         screenResolution = new Vector2(Screen.width, Screen.height);
 
         uiHandler.selectedNoteChanged += OnSelectedNoteChanged;
+
+        uiHandler.selectNextNote += OnSelectNextNote;
+        uiHandler.selectPreviousNote += OnSelectPreviousNote;
+        uiHandler.unselectNote += OnUnselectNote;
     }
 
     void Start()
@@ -148,15 +148,6 @@ public class SoundAnalyzer : MonoBehaviour
 
         updateButton.onClick.AddListener(delegate
         { UpdateButtonClick(); });
-
-        nextButton.onClick.AddListener(delegate
-        { NextButtonClick(); });
-
-        previousButton.onClick.AddListener(delegate
-        { PreviousButtonClick(); });
-
-        unselectButton.onClick.AddListener(delegate
-        { UnselectButtonClick(); });
 
         retriggerLevelSlider.onValueChanged.AddListener(delegate
         { RetriggerLevelSliderChanged(retriggerLevelSlider); });
@@ -279,7 +270,7 @@ public class SoundAnalyzer : MonoBehaviour
         UnselectNote();
     }
 
-    void NextButtonClick()
+    void OnSelectNextNote()
     {
         Note nextNote;
 
@@ -303,7 +294,7 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(nextNote);
     }
 
-    void PreviousButtonClick()
+    void OnSelectPreviousNote()
     {
         Note previousNote;
 
@@ -327,7 +318,7 @@ public class SoundAnalyzer : MonoBehaviour
         SelectNote(previousNote);
     }
 
-    void UnselectButtonClick()
+    void OnUnselectNote()
     {
         UnselectNote();
     }

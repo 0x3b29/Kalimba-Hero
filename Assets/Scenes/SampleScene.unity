@@ -3507,6 +3507,9 @@ MonoBehaviour:
   audioInputDevicesDropdown: {fileID: 785239610}
   selectedNoteText: {fileID: 1327905518}
   noteSelectorDropdown: {fileID: 1673157586}
+  nextButton: {fileID: 338269746}
+  unselectButton: {fileID: 868798726}
+  previousButton: {fileID: 84533770}
 --- !u!1 &534572392
 GameObject:
   m_ObjectHideFlags: 0
@@ -6112,9 +6115,6 @@ MonoBehaviour:
   clearButton: {fileID: 6318388}
   updateButton: {fileID: 1945013999}
   removeButton: {fileID: 1618040119}
-  nextButton: {fileID: 338269746}
-  unselectButton: {fileID: 868798726}
-  previousButton: {fileID: 84533770}
   noteNameInput: {fileID: 741410001}
   noteMidiInput: {fileID: 1026555859}
   thresholdSliderPanel: {fileID: 594624505}
